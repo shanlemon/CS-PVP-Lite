@@ -1,0 +1,857 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1610;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  user-select: none;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---- full screens ---- */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: rgba(12, 10, 6, 0.78);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+  color: #eee;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.logo {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: #e8dcc0;
+}
+.logo span {
+  color: #e8a33d;
+}
+
+/* ---- lobby ---- */
+.teams {
+  display: flex;
+  gap: 32px;
+}
+
+.team-col {
+  width: 260px;
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.team-t h2 {
+  color: #e8a33d;
+}
+.team-ct h2 {
+  color: #6fa8ff;
+}
+.team-col h2 {
+  font-size: 16px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 84px;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+}
+.slot.empty {
+  color: #777;
+  font-style: italic;
+}
+.slot img,
+.slot .avatar-fallback {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #555;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+.slot .you {
+  color: #e8a33d;
+  font-size: 11px;
+  margin-left: auto;
+}
+
+button {
+  pointer-events: auto;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 10px 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  color: #eee;
+  transition: background 0.15s;
+}
+button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#startBtn,
+#againBtn {
+  font-size: 18px;
+  padding: 14px 48px;
+  background: #b3322e;
+  border-color: #d9534f;
+}
+#startBtn:hover:not(:disabled),
+#againBtn:hover {
+  background: #d9534f;
+}
+
+#lobbyHint,
+#spectatorRow {
+  color: #999;
+  font-size: 13px;
+}
+
+/* ---- lobby bot controls ---- */
+.team-actions {
+  display: flex;
+  gap: 8px;
+}
+.team-actions .join-btn {
+  flex: 1;
+}
+
+.add-bot {
+  padding: 10px 14px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  color: #b9b09c;
+}
+.add-bot:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  color: #eee;
+}
+
+.slot .bot-glyph {
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 14px;
+}
+.slot .bot-name {
+  color: #a89f8c;
+}
+.bot-remove {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: #777;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.bot-remove:hover:not(:disabled) {
+  background: rgba(255, 90, 90, 0.12);
+  color: #ff5a5a;
+}
+
+/* ---- HUD ---- */
+#hud {
+  position: absolute;
+  inset: 0;
+}
+
+#scorebar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 18px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+}
+#scorebar .side {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+#scorebar .side.t {
+  background: #8a5a1d;
+  color: #ffd9a0;
+}
+#scorebar .side.ct {
+  background: #2a4d80;
+  color: #cfe2ff;
+}
+#scoreSep {
+  color: #888;
+}
+
+#killfeed {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  font-size: 13px;
+}
+.feed-row {
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: #ddd;
+}
+.feed-row .t {
+  color: #e8a33d;
+  font-weight: 700;
+}
+.feed-row .ct {
+  color: #6fa8ff;
+  font-weight: 700;
+}
+.feed-row .hs {
+  color: #ff5a5a;
+}
+
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+#crosshair i {
+  position: absolute;
+  background: #4cff7a;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.9);
+}
+#crosshair i:nth-child(1) { left: -1px; top: -11px; width: 2px; height: 7px; }
+#crosshair i:nth-child(2) { left: -1px; top: 4px;  width: 2px; height: 7px; }
+#crosshair i:nth-child(3) { left: -11px; top: -1px; width: 7px; height: 2px; }
+#crosshair i:nth-child(4) { left: 4px;  top: -1px; width: 7px; height: 2px; }
+
+/* AWP scope: dark vignette with a circular clear center + thin crosshair lines */
+#scope {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 0,
+    transparent 36vmin,
+    rgba(0, 0, 0, 0.85) 38vmin,
+    #000 44vmin
+  );
+}
+#scope::before,
+#scope::after {
+  content: '';
+  position: absolute;
+  background: #000;
+}
+#scope::before {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+}
+#scope::after {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+#pickupHint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, 28px);
+  padding: 5px 14px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffd27a;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px #000;
+}
+
+#hitmarker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  opacity: 0;
+}
+#hitmarker::before,
+#hitmarker::after {
+  content: '';
+  position: absolute;
+  background: #fff;
+}
+#hitmarker::before { left: 12px; top: 0; width: 2px; height: 26px; }
+#hitmarker::after { left: 0; top: 12px; width: 26px; height: 2px; }
+#hitmarker.head::before,
+#hitmarker.head::after {
+  background: #ff4444;
+}
+
+#damageDir {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120px;
+  height: 120px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+#damageDir::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -14px;
+  transform: translateX(-50%);
+  border: 10px solid transparent;
+  border-bottom: 16px solid rgba(255, 60, 60, 0.9);
+}
+
+#vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 140px rgba(255, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+#bottomBar {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 28px;
+  font-weight: 800;
+  color: #fff;
+}
+#health,
+#ammo {
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 26px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+#health b {
+  color: #ff6961;
+}
+#ammo small {
+  font-size: 14px;
+  color: #aaa;
+}
+#weaponName {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #aaa;
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+
+#reloadNote {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffd27a;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-shadow: 0 1px 3px #000;
+}
+
+#countdown {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 90px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+}
+
+#banner {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 14px 38px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #fff;
+  white-space: nowrap;
+}
+#banner.t {
+  color: #ffc168;
+}
+#banner.ct {
+  color: #8fc1ff;
+}
+
+/* ---- touch controls ---- */
+body.touch-mode {
+  touch-action: none;
+  -webkit-user-select: none;
+}
+
+#touchUI {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+#joyZone,
+#lookZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: auto;
+  touch-action: none;
+}
+#joyZone {
+  left: 0;
+  width: 42%;
+}
+#lookZone {
+  right: 0;
+  width: 58%;
+}
+
+#joyBase {
+  position: absolute;
+  width: 124px;
+  height: 124px;
+  margin: -62px 0 0 -62px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+#joyKnob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transform: translate(-50%, -50%);
+}
+
+.touch-btn {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 0;
+}
+.touch-btn:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+#btnFire {
+  right: 26px;
+  bottom: 86px;
+  width: 92px;
+  height: 92px;
+  font-size: 16px;
+  border-color: rgba(255, 120, 100, 0.6);
+  background: rgba(120, 30, 20, 0.45);
+}
+#btnJump {
+  right: 132px;
+  bottom: 36px;
+}
+#btnReload {
+  right: 36px;
+  bottom: 200px;
+}
+#btnScope {
+  right: 132px;
+  bottom: 140px;
+  font-size: 22px;
+}
+#btnUse {
+  right: 36px;
+  bottom: 272px;
+  border-color: rgba(255, 210, 122, 0.55);
+  color: #ffd27a;
+}
+
+/* Compact HUD on touch devices: vitals move to the top, under the scorebar */
+body.touch-mode #bottomBar {
+  bottom: auto;
+  top: 54px;
+  justify-content: center;
+  gap: 16px;
+  pointer-events: none;
+}
+body.touch-mode #health,
+body.touch-mode #ammo {
+  font-size: 18px;
+  padding: 5px 12px;
+}
+body.touch-mode #reloadNote {
+  bottom: auto;
+  top: 110px;
+}
+
+/* Rotate hint: the game wants landscape on phones */
+#rotateHint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(8, 6, 4, 0.92);
+  color: #eee;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+@media (orientation: portrait) {
+  body.touch-mode #rotateHint {
+    display: flex;
+  }
+}
+
+/* ---- end-of-round damage report ---- */
+#dmgReport {
+  position: absolute;
+  top: 36%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 320px;
+  padding: 12px 20px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ddd;
+}
+#dmgReport h4 {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #999;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.dmg-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto 18px;
+  gap: 12px;
+  align-items: baseline;
+  padding: 3px 0;
+  font-size: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.dmg-name {
+  font-weight: 700;
+}
+.dmg-name.t {
+  color: #e8a33d;
+}
+.dmg-name.ct {
+  color: #6fa8ff;
+}
+.dmg-val {
+  font-weight: 800;
+  color: #fff;
+}
+.dmg-hits {
+  font-size: 12px;
+  color: #999;
+}
+.dmg-skull {
+  color: #ff5a5a;
+}
+.dmg-none {
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+}
+
+#deathOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 18vh;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(80, 0, 0, 0.45));
+  color: #fff;
+  text-shadow: 0 1px 4px #000;
+}
+#deathOverlay h3 {
+  font-size: 22px;
+}
+#spectatingNote {
+  color: #ccc;
+  margin-top: 6px;
+}
+
+#clickToPlay {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 30px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 3px;
+  animation: pulse 1.4s infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ---- scoreboard ---- */
+#scoreboard {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px;
+  background: rgba(8, 8, 8, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 18px 22px;
+  color: #ddd;
+}
+#scoreboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+#scoreboard th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #888;
+  padding: 6px 8px;
+}
+#scoreboard td {
+  padding: 6px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+#scoreboard .team-head {
+  font-weight: 800;
+  padding-top: 12px;
+}
+#scoreboard .team-head.t {
+  color: #e8a33d;
+}
+#scoreboard .team-head.ct {
+  color: #6fa8ff;
+}
+#scoreboard .dead {
+  color: #777;
+}
+
+/* ---- match end ---- */
+#matchEnd h1 {
+  font-size: 40px;
+  letter-spacing: 3px;
+}
+#matchEnd h1.t {
+  color: #ffc168;
+}
+#matchEnd h1.ct {
+  color: #8fc1ff;
+}
+#finalBoard {
+  min-width: 420px;
+}
+
+/* ---- compact screens (phones, short landscape viewports) ---- */
+@media (max-width: 700px), (max-height: 520px) {
+  .screen {
+    gap: 10px;
+    justify-content: flex-start;
+    padding: 14px 12px 18px;
+  }
+  .logo {
+    font-size: 22px;
+    letter-spacing: 3px;
+    white-space: nowrap;
+  }
+  .teams {
+    gap: 12px;
+    width: 100%;
+    justify-content: center;
+  }
+  .team-col {
+    width: min(46%, 230px);
+    padding: 8px;
+    gap: 6px;
+  }
+  .team-col h2 {
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .slots {
+    min-height: 60px;
+    gap: 4px;
+  }
+  .slot {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .slot img,
+  .slot .avatar-fallback {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+  button {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+  #startBtn,
+  #againBtn {
+    font-size: 15px;
+    padding: 10px 32px;
+  }
+  #lobbyHint,
+  #spectatorRow {
+    font-size: 11px;
+    text-align: center;
+  }
+  #matchEnd h1 {
+    font-size: 24px;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+  #finalBoard {
+    min-width: 0;
+    width: min(92vw, 420px);
+  }
+  #scoreboard {
+    width: min(92vw, 520px);
+    padding: 10px 12px;
+  }
+  #dmgReport {
+    min-width: 0;
+    width: min(86vw, 340px);
+    top: 30%;
+    font-size: 13px;
+  }
+  #scorebar {
+    font-size: 15px;
+    padding: 4px 12px;
+    gap: 7px;
+  }
+  #banner {
+    font-size: 18px;
+    padding: 10px 18px;
+    white-space: normal;
+    text-align: center;
+    max-width: 88vw;
+  }
+  #countdown {
+    font-size: 56px;
+  }
+  #killfeed {
+    font-size: 11px;
+  }
+}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>CS PVP Lite</title>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="ui">
+      <!-- Connect / loading -->
+      <div id="loading" class="screen">
+        <div class="logo">CS <span>PVP</span> LITE</div>
+        <p id="loadingText">Connecting…</p>
+      </div>
+
+      <!-- Lobby -->
+      <div id="lobby" class="screen hidden">
+        <div class="logo">CS <span>PVP</span> LITE</div>
+        <div class="teams">
+          <div class="team-col team-t">
+            <h2>Terrorists</h2>
+            <div class="slots" id="slots-T"></div>
+            <button class="join-btn" data-team="T">Join T</button>
+          </div>
+          <div class="team-col team-ct">
+            <h2>Counter-Terrorists</h2>
+            <div class="slots" id="slots-CT"></div>
+            <button class="join-btn" data-team="CT">Join CT</button>
+          </div>
+        </div>
+        <div id="spectatorRow"></div>
+        <button id="startBtn" disabled>Start Game</button>
+        <p id="lobbyHint">Both teams need at least one player.</p>
+      </div>
+
+      <!-- In-game HUD -->
+      <div id="hud" class="hidden">
+        <div id="scope" class="hidden"></div>
+        <div id="scorebar">
+          <span class="side t">T</span><span id="scoreT">0</span>
+          <span id="scoreSep">·</span>
+          <span id="scoreCT">0</span><span class="side ct">CT</span>
+        </div>
+        <div id="killfeed"></div>
+        <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+        <div id="pickupHint" class="hidden"></div>
+        <div id="hitmarker"></div>
+        <div id="damageDir"></div>
+        <div id="vignette"></div>
+        <div id="bottomBar">
+          <div id="health"><b>+</b><span id="hpVal">100</span></div>
+          <div id="ammo"><span id="weaponName">AK-47</span><span id="magVal">30</span><small>/∞</small></div>
+        </div>
+        <div id="reloadNote" class="hidden">RELOADING…</div>
+        <div id="countdown" class="hidden"></div>
+        <div id="banner" class="hidden"></div>
+        <div id="dmgReport" class="hidden"></div>
+        <div id="deathOverlay" class="hidden">
+          <h3 id="deathBy"></h3>
+          <p id="spectatingNote"></p>
+        </div>
+        <div id="clickToPlay" class="hidden">CLICK TO PLAY</div>
+      </div>
+
+      <!-- Scoreboard (hold Tab) -->
+      <div id="scoreboard" class="hidden"></div>
+
+      <!-- Match end -->
+      <div id="matchEnd" class="screen hidden">
+        <h1 id="matchWinnerText"></h1>
+        <div id="finalBoard"></div>
+        <button id="againBtn">Play Again</button>
+      </div>
+    </div>
+
+    <div id="rotateHint">Rotate your phone to landscape&nbsp;🔄</div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "name": "cs-pvp-lite",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm -w server run dev",
+    "dev:client": "npm -w client run dev",
+    "build": "npm -w client run build",
+    "start": "npm -w server run start",
+    "typecheck": "npm -w server run typecheck && npm -w client run typecheck",
+    "test:e2e": "node scripts/e2e.mjs",
+    "test:spray": "node scripts/spray-test.mjs",
+    "test:pickup": "node scripts/pickup-test.mjs",
+    "test:bots": "node scripts/bot-match-test.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "overrides": {
+    "shell-quote": "^1.8.4"
+  }
+}
