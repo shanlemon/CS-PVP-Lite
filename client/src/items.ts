@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { ItemState, WeaponType } from '@cs/shared';
-import { makeContactShadow } from './gfx/props.js';
+import { makeContactShadow } from './gfx/contactShadow.js';
 
 // ---------------------------------------------------------------------------
 // Ground weapon pickups: a simplified lying-flat gun per visible item, with a

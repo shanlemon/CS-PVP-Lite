@@ -1,74 +1,46 @@
-﻿// Verifies in-game bots: add/remove in lobby, then a live bot must navigate
+// Verifies in-game bots: add/remove in lobby, then a live bot must navigate
 // (move several meters) and fight (fire shots / damage the idle human).
 // Usage: node scripts/bot-match-test.mjs   (expects the server on :3001)
-import WebSocket from 'ws';
+import { fail, roomName, sleep, TestClient, until } from './ws-test-client.mjs';
 
-import { gamePort } from './port.mjs';
+const ROOM = roomName('bots');
 
-const URL = `ws://localhost:${gamePort()}/ws`;
-const ROOM = 'bots-' + Date.now();
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function fail(msg) {
-  console.error('FAIL:', msg);
-  process.exit(1);
-}
-
-const c = { id: null, room: null, you: null, players: [], seq: 0, botShots: 0, damaged: false, kills: [] };
-const ws = new WebSocket(URL);
-await new Promise((resolve, reject) => {
-  ws.on('open', () => {
-    ws.send(JSON.stringify({ t: 'hello', name: 'Human', avatarUrl: null, instanceId: ROOM }));
-    resolve();
-  });
-  ws.on('error', reject);
+const c = new TestClient('Human', ROOM, {
+  onEvent: (msg, client) => {
+    if (msg.t === 'shot' && msg.shooterId !== client.id) client.botShots++;
+    else if (msg.t === 'damage') client.damaged = true;
+    else if (msg.t === 'kill') client.kills.push(msg);
+  },
 });
-ws.on('message', (raw) => {
-  const m = JSON.parse(raw.toString());
-  if (m.t === 'welcome') { c.id = m.id; c.room = m.room; }
-  else if (m.t === 'room') c.room = m.room;
-  else if (m.t === 'snap') { c.you = m.you; c.players = m.players; }
-  else if (m.t === 'shot' && m.shooterId !== c.id) c.botShots++;
-  else if (m.t === 'damage') c.damaged = true;
-  else if (m.t === 'kill') c.kills.push(m);
-});
+c.botShots = 0;
+c.damaged = false;
+c.kills = [];
 
-async function until(desc, cond, timeoutMs = 10000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < timeoutMs) {
-    if (cond()) return;
-    await sleep(50);
-  }
-  fail(`timeout: ${desc}`);
-}
-
+await c.connect();
 await sleep(200);
-ws.send(JSON.stringify({ t: 'team', team: 'T' }));
+c.join('T');
 
 // Add two bots, remove one.
-ws.send(JSON.stringify({ t: 'addBot', team: 'CT' }));
+c.addBot('CT');
 await until('CT bot in roster', () => c.room?.players?.some((p) => p.bot && p.team === 'CT'));
-ws.send(JSON.stringify({ t: 'addBot', team: 'T' }));
+c.addBot('T');
 await until('T bot in roster', () => c.room.players.some((p) => p.bot && p.team === 'T'));
 const tBot = c.room.players.find((p) => p.bot && p.team === 'T');
 console.log('ok: bots added:', c.room.players.filter((p) => p.bot).map((p) => `${p.name}(${p.team})`).join(', '));
 
-ws.send(JSON.stringify({ t: 'removeBot', id: tBot.id }));
+c.removeBot(tBot.id);
 await until('T bot removed', () => !c.room.players.some((p) => p.id === tBot.id));
 console.log('ok: bot removal works');
 
 const ctBot = c.room.players.find((p) => p.bot && p.team === 'CT');
 
 // Start: 1 human (T) vs 1 bot (CT).
-ws.send(JSON.stringify({ t: 'start' }));
+c.start();
 await until('live', () => c.room.phase === 'live', 8000);
 console.log('ok: match started vs bot');
 
 // Keep the human "connected-looking": send idle inputs so the server processes us.
-const pump = setInterval(() => {
-  c.seq++;
-  ws.send(JSON.stringify({ t: 'inputs', inputs: [{ seq: c.seq, dt: 0.033, mx: 0, mz: 0, jump: false, yaw: 0, pitch: 0, fire: false, reload: false, use: false, zoom: false }] }));
-}, 50);
+const pump = setInterval(() => c.input(), 50);
 
 // Watch the bot for up to 30s: it must move several meters and fight.
 const start = Date.now();
@@ -91,10 +63,7 @@ if (c.botShots === 0 && !c.damaged) fail('bot never fired or dealt damage - comb
 
 if (process.env.BOT_KILL_CHECK) {
   // Stronger assertion: the bot must finish off an idle target within 60s.
-  const pump2 = setInterval(() => {
-    c.seq++;
-    ws.send(JSON.stringify({ t: 'inputs', inputs: [{ seq: c.seq, dt: 0.033, mx: 0, mz: 0, jump: false, yaw: 0, pitch: 0, fire: false, reload: false, use: false, zoom: false }] }));
-  }, 50);
+  const pump2 = setInterval(() => c.input(), 50);
   const t0 = Date.now();
   while (Date.now() - t0 < 60000 && !c.kills.some((k) => k.victimId === c.id)) {
     await sleep(200);
@@ -105,4 +74,5 @@ if (process.env.BOT_KILL_CHECK) {
 }
 
 console.log('\nBOT MATCH TEST PASSED');
+c.close();
 process.exit(0);

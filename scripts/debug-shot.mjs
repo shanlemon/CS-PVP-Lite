@@ -1,41 +1,17 @@
 ﻿// Diagnose a single aimed shot: connect two clients, start a round, fire once,
 // log every shot/hitmark/damage/kill message and the geometry involved.
-import WebSocket from 'ws';
+import { sleep, TestClient } from './ws-test-client.mjs';
 
-import { gamePort } from './port.mjs';
-
-const URL = `ws://localhost:${gamePort()}/ws`;
 const ROOM = 'dbg-' + Date.now();
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function mkClient(name) {
-  const c = { name, id: null, room: null, you: null, players: [], seq: 0 };
-  c.ready = new Promise((resolve) => {
-    c.ws = new WebSocket(URL);
-    c.ws.on('open', () => {
-      c.ws.send(JSON.stringify({ t: 'hello', name, avatarUrl: null, instanceId: ROOM }));
-      resolve();
-    });
-    c.ws.on('message', (raw) => {
-      const m = JSON.parse(raw.toString());
-      if (m.t === 'welcome') { c.id = m.id; c.room = m.room; }
-      else if (m.t === 'room') c.room = m.room;
-      else if (m.t === 'snap') { c.you = m.you; c.players = m.players; }
-      else console.log(`[${name}]`, JSON.stringify(m));
-    });
-  });
-  c.input = (f) => c.ws.send(JSON.stringify({ t: 'inputs', inputs: [{ seq: ++c.seq, dt: 0.033, mx: 0, mz: 0, jump: false, yaw: 0, pitch: 0, fire: false, reload: false, ...f }] }));
-  return c;
-}
-
-const a = mkClient('Alice');
-const b = mkClient('Bob');
-await a.ready; await b.ready;
+const a = new TestClient('Alice', ROOM, { verbose: true });
+const b = new TestClient('Bob', ROOM, { verbose: true });
+await Promise.all([a.connect(), b.connect()]);
 await sleep(200);
-a.ws.send(JSON.stringify({ t: 'team', team: 'T' }));
-b.ws.send(JSON.stringify({ t: 'team', team: 'CT' }));
+a.join('T');
+b.join('CT');
 await sleep(200);
-a.ws.send(JSON.stringify({ t: 'start' }));
+a.start();
 await sleep(3600); // countdown 3s
 
 console.log('phase:', a.room.phase);

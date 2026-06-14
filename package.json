@@ -15,6 +15,7 @@
     "build": "npm -w client run build",
     "start": "npm -w server run start",
     "typecheck": "npm -w server run typecheck && npm -w client run typecheck",
+    "test:all": "npm run test:bounds && npm run test:e2e && npm run test:pickup && npm run test:bots && npm run test:spray",
     "test:e2e": "node scripts/e2e.mjs",
     "test:bounds": "tsx scripts/bounds-test.mjs",
     "test:spray": "node scripts/spray-test.mjs",

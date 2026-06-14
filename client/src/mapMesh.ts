@@ -12,70 +12,12 @@ import {
   trimBandTexture,
 } from './gfx/textures.js';
 import { applyLighting, applySky } from './gfx/sky.js';
-import {
-  makeBuildingBlock,
-  makeContactShadow,
-  makeDome,
-  makeDoorway,
-  makePalm,
-} from './gfx/props.js';
+import { makeContactShadow } from './gfx/contactShadow.js';
+import { addDoorways, addSkyline } from './mapDressing.js';
+import { cachedMaterial, texturedMaterial } from './mapMaterials.js';
 
 // Dressed Dust2-style arena. Visual geometry is generated from the same
 // SOLIDS data the collision uses, so the two can never drift apart.
-
-// ---------------------------------------------------------------------------
-// material / texture caches — one canvas draw per texture, one material per
-// (texture, repeat, tint) combination. Texture clones share the GPU source.
-// ---------------------------------------------------------------------------
-
-const baseTextures = new Map<string, THREE.CanvasTexture>();
-const materials = new Map<string, THREE.MeshStandardMaterial>();
-
-function sharedTexture(name: string, make: () => THREE.CanvasTexture): THREE.CanvasTexture {
-  let tex = baseTextures.get(name);
-  if (!tex) {
-    tex = make();
-    baseTextures.set(name, tex);
-  }
-  return tex;
-}
-
-interface MatOpts {
-  roughness?: number;
-  metalness?: number;
-  tint?: number;
-}
-
-function texturedMaterial(
-  name: string,
-  make: () => THREE.CanvasTexture,
-  repeatX: number,
-  repeatY: number,
-  opts: MatOpts = {},
-): THREE.MeshStandardMaterial {
-  const roughness = opts.roughness ?? 0.95;
-  const metalness = opts.metalness ?? 0;
-  const key = `${name}|${repeatX.toFixed(3)}|${repeatY.toFixed(3)}|${opts.tint ?? -1}|${roughness}|${metalness}`;
-  let mat = materials.get(key);
-  if (!mat) {
-    const tex = sharedTexture(name, make).clone();
-    tex.repeat.set(repeatX, repeatY);
-    tex.needsUpdate = true;
-    mat = new THREE.MeshStandardMaterial({ map: tex, roughness, metalness });
-    if (opts.tint !== undefined) mat.color.setHex(opts.tint);
-    materials.set(key, mat);
-  }
-  return mat;
-}
-
-function cachedMaterial(key: string, create: () => THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
-  let mat = materials.get(key);
-  if (!mat) {
-    mat = create();
-    materials.set(key, mat);
-  }
-  return mat;
-}
 
 // ---------------------------------------------------------------------------
 // crates
@@ -322,60 +264,6 @@ function addGround(scene: THREE.Scene): void {
     strip.position.set(0, 1.006, sz * (hz - 0.8));
     strip.receiveShadow = true;
     scene.add(strip);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// doorways & skyline dressing
-// ---------------------------------------------------------------------------
-
-function addDoorways(scene: THREE.Scene): void {
-  for (const sign of [-1, 1] as const) {
-    const door = makeDoorway();
-    door.position.set(0, 1, sign * ARENA_HALF_Z); // base on the spawn platform
-    if (sign > 0) door.rotation.y = Math.PI; // always face the arena
-    scene.add(door);
-  }
-}
-
-function addSkyline(scene: THREE.Scene): void {
-  // Navy dome behind the west wall (left of frame in the reference).
-  const dome = makeDome();
-  dome.position.set(-24, 0, -8);
-  scene.add(dome);
-
-  // Flat-roofed blocks whose parapets peek 1-3m above the 5.5m walls.
-  const blocks: Array<[number, number, number, number, number]> = [
-    // [w, h, d, x, z] — w<d puts the windowed faces on ±x (east blocks)
-    [10, 7, 6, 7, -30.5],
-    [8, 6.6, 5, -9, -29.5],
-    [7, 7.6, 9, 23.5, 3],
-    [6, 8.4, 8, 24.5, -15],
-    [12, 6.8, 6, -6, 30.5],
-  ];
-  for (const [w, h, d, x, z] of blocks) {
-    const block = makeBuildingBlock(w, h, d);
-    block.position.set(x, 0, z);
-    scene.add(block);
-  }
-
-  // Palms around the perimeter, two flanking the dome (crowns clear the walls).
-  const palms: Array<[number, number, number, number]> = [
-    // [x, z, scale, rotY] — tall enough that trunks show above the coping
-    [-21, -3.5, 1.55, 0.4],
-    [-26.5, -13, 1.35, 2.1],
-    [-20.5, 13, 1.3, 4.4],
-    [-13, -28, 1.5, 1.2],
-    [12.5, -27.5, 1.6, 5.3],
-    [20.5, -6, 1.3, 3.0],
-    [21.5, 17, 1.45, 0.9],
-    [9, 28.5, 1.4, 2.6],
-  ];
-  for (const [x, z, scale, rot] of palms) {
-    const palm = makePalm(scale);
-    palm.position.set(x, 0, z);
-    palm.rotation.y = rot;
-    scene.add(palm);
   }
 }
 

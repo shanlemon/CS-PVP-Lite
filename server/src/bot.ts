@@ -4,104 +4,30 @@
 // seeded PRNG so a given seed always produces the same personality/behavior.
 
 import { EYE_HEIGHT, WEAPONS, sprayOffset } from '@cs/shared';
-import type { Phase, Team, WeaponType, ItemState, InputFrame } from '@cs/shared';
+import type { BotEnemyView, BotFrame, BotSelfView, BotWorldView } from './botTypes.js';
+import {
+  ERR_START,
+  ERR_TAU,
+  FIRE_ANGLE,
+  FIRE_RANGE,
+  ITEM_NOTICE_RANGE,
+  ITEM_USE_RANGE,
+  PITCH_LIMIT,
+  REPATH_INTERVAL,
+  STUCK_DIST,
+  STUCK_WINDOW,
+  TURN_RATE,
+  WAYPOINT_RADIUS,
+} from './botConfig.js';
+import { approachAngle, clamp, normAngle } from './botMath.js';
+import {
+  consumeReachedMemory,
+  nearestMemoryGoal,
+  updateEnemyMemory,
+  type EnemyMemoryMap,
+} from './botMemory.js';
 import type { NavGrid, NavPoint } from './nav.js';
-
-export const BOT_NAMES: ReadonlyArray<string> = [
-  'Cliffe',
-  'Hank',
-  'Vitaliy',
-  'Goose',
-  'Minh',
-  'Brett',
-  'Kurt',
-  'Crusher',
-  'Ringo',
-  'Quinn',
-  'Wolf',
-  'Zim',
-];
-
-export interface BotSelfView {
-  id: string;
-  team: Team;
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  pitch: number;
-  grounded: boolean;
-  hp: number;
-  mag: number;
-  reloading: boolean;
-  weapon: WeaponType;
-  alive: boolean;
-}
-
-export interface BotEnemyView {
-  id: string;
-  x: number;
-  y: number;
-  z: number;
-  visible: boolean; // LOS precomputed by the room (eye-to-eye raycast vs SOLIDS)
-  distance: number;
-}
-
-export interface BotWorldView {
-  enemies: BotEnemyView[];
-  items: ItemState[];
-  phase: Phase;
-}
-
-type BotFrame = Omit<InputFrame, 'seq'>;
-
-interface EnemyMemory {
-  firstSeen: number; // for the reaction timer
-  lastSeen: number;
-  x: number;
-  y: number;
-  z: number;
-}
-
-const TURN_RATE = 7; // rad/s max yaw/pitch slew
-const PITCH_LIMIT = 1.45;
-const FIRE_ANGLE = 0.05; // rad: only shoot when roughly on target
-const FIRE_RANGE = 60;
-const ERR_START = 0.06; // rad of aim error on target acquisition
-const ERR_TAU = 0.6; // exponential decay time constant
-const RESIGHT_GRACE = 0.6; // s out of sight before reaction timer restarts
-const REPATH_INTERVAL = 1.5;
-const WAYPOINT_RADIUS = 0.7;
-const STUCK_WINDOW = 0.7;
-const STUCK_DIST = 0.35;
-const ITEM_NOTICE_RANGE = 6;
-const ITEM_USE_RANGE = 1.0;
-
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function normAngle(a: number): number {
-  while (a > Math.PI) a -= Math.PI * 2;
-  while (a < -Math.PI) a += Math.PI * 2;
-  return a;
-}
-
-function approachAngle(cur: number, target: number, maxDelta: number): number {
-  const diff = normAngle(target - cur);
-  if (Math.abs(diff) <= maxDelta) return target;
-  return cur + Math.sign(diff) * maxDelta;
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
-}
+import { mulberry32 } from './random.js';
 
 export class BotBrain {
   private readonly rng: () => number;
@@ -118,7 +44,7 @@ export class BotBrain {
 
   // Combat state
   private targetId: string | null = null;
-  private enemyMem = new Map<string, EnemyMemory>();
+  private enemyMem: EnemyMemoryMap = new Map();
   private errMag = ERR_START;
   private errDirYaw = 1;
   private errDirPitch = 0;
@@ -196,7 +122,7 @@ export class BotBrain {
       return frame;
     }
 
-    this.updateEnemyMemory(world);
+    updateEnemyMemory(this.enemyMem, world, this.now);
 
     // Nearest visible enemy, if any.
     let target: BotEnemyView | null = null;
@@ -350,7 +276,7 @@ export class BotBrain {
       const nearGoal = Math.hypot(this.goal.x - self.x, this.goal.z - self.z) < 1;
       if (pathDone && nearGoal) {
         // Arrived: clear any last-seen memory here and wander next tick.
-        this.consumeReachedMemory(this.goal);
+        consumeReachedMemory(this.enemyMem, this.goal);
         this.goal = null;
         return;
       }
@@ -373,7 +299,7 @@ export class BotBrain {
     if (this.pathIdx >= this.path.length) {
       // Whole (possibly snapped) path is behind us: treat the goal as reached
       // so we don't repath in place forever toward an unreachable exact point.
-      this.consumeReachedMemory(this.goal);
+      consumeReachedMemory(this.enemyMem, this.goal);
       this.goal = null;
       return;
     }
@@ -391,16 +317,7 @@ export class BotBrain {
   }
 
   private pickHuntGoal(self: BotSelfView, nav: NavGrid): NavPoint | null {
-    // Prefer the nearest enemy's last-seen position.
-    let best: NavPoint | null = null;
-    let bestD = Infinity;
-    for (const mem of this.enemyMem.values()) {
-      const d = Math.hypot(mem.x - self.x, mem.z - self.z);
-      if (d < bestD) {
-        bestD = d;
-        best = { x: mem.x, z: mem.z };
-      }
-    }
+    const best = nearestMemoryGoal(this.enemyMem, self);
     if (best) return best;
 
     // Otherwise wander toward the enemy half of the map.
@@ -410,33 +327,6 @@ export class BotBrain {
       if (p.z * enemySign > 2) return p;
     }
     return nav.randomWalkable();
-  }
-
-  private consumeReachedMemory(goal: NavPoint): void {
-    for (const [id, mem] of this.enemyMem) {
-      if (Math.hypot(mem.x - goal.x, mem.z - goal.z) < 1.5) this.enemyMem.delete(id);
-    }
-  }
-
-  private updateEnemyMemory(world: BotWorldView): void {
-    const ids = new Set<string>();
-    for (const e of world.enemies) {
-      ids.add(e.id);
-      if (!e.visible) continue;
-      const mem = this.enemyMem.get(e.id);
-      if (mem === undefined || this.now - mem.lastSeen > RESIGHT_GRACE) {
-        this.enemyMem.set(e.id, { firstSeen: this.now, lastSeen: this.now, x: e.x, y: e.y, z: e.z });
-      } else {
-        mem.lastSeen = this.now;
-        mem.x = e.x;
-        mem.y = e.y;
-        mem.z = e.z;
-      }
-    }
-    // Forget enemies that left the world (died / disconnected).
-    for (const id of this.enemyMem.keys()) {
-      if (!ids.has(id)) this.enemyMem.delete(id);
-    }
   }
 
   // ---- UNSTUCK ----

@@ -1,0 +1,137 @@
+/* ---- touch controls ---- */
+body.touch-mode {
+  touch-action: none;
+  -webkit-user-select: none;
+}
+
+#touchUI {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+#joyZone,
+#lookZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: auto;
+  touch-action: none;
+}
+#joyZone {
+  left: 0;
+  width: 42%;
+}
+#lookZone {
+  right: 0;
+  width: 58%;
+}
+
+#joyBase {
+  position: absolute;
+  width: 124px;
+  height: 124px;
+  margin: -62px 0 0 -62px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+#joyKnob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transform: translate(-50%, -50%);
+}
+
+.touch-btn {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 0;
+}
+.touch-btn:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+#btnFire {
+  right: 26px;
+  bottom: 86px;
+  width: 92px;
+  height: 92px;
+  font-size: 16px;
+  border-color: rgba(255, 120, 100, 0.6);
+  background: rgba(120, 30, 20, 0.45);
+}
+#btnJump {
+  right: 132px;
+  bottom: 36px;
+}
+#btnReload {
+  right: 36px;
+  bottom: 200px;
+}
+#btnScope {
+  right: 132px;
+  bottom: 140px;
+  font-size: 22px;
+}
+#btnUse {
+  right: 36px;
+  bottom: 272px;
+  border-color: rgba(255, 210, 122, 0.55);
+  color: #ffd27a;
+}
+
+/* Compact HUD on touch devices: vitals move to the top, under the scorebar */
+body.touch-mode #bottomBar {
+  bottom: auto;
+  top: 54px;
+  justify-content: center;
+  gap: 16px;
+  pointer-events: none;
+}
+body.touch-mode #health,
+body.touch-mode #ammo {
+  font-size: 18px;
+  padding: 5px 12px;
+}
+body.touch-mode #reloadNote {
+  bottom: auto;
+  top: 110px;
+}
+
+/* Rotate hint: the game wants landscape on phones */
+#rotateHint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(8, 6, 4, 0.92);
+  color: #eee;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+@media (orientation: portrait) {
+  body.touch-mode #rotateHint {
+    display: flex;
+  }
+}

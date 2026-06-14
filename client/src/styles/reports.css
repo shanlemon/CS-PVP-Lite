@@ -1,0 +1,92 @@
+/* ---- end-of-round damage report ---- */
+#dmgReport {
+  position: absolute;
+  top: 36%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 320px;
+  padding: 12px 20px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ddd;
+}
+#dmgReport h4 {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #999;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.dmg-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto 18px;
+  gap: 12px;
+  align-items: baseline;
+  padding: 3px 0;
+  font-size: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.dmg-name {
+  font-weight: 700;
+}
+.dmg-name.t {
+  color: #e8a33d;
+}
+.dmg-name.ct {
+  color: #6fa8ff;
+}
+.dmg-val {
+  font-weight: 800;
+  color: #fff;
+}
+.dmg-hits {
+  font-size: 12px;
+  color: #999;
+}
+.dmg-skull {
+  color: #ff5a5a;
+}
+.dmg-none {
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+}
+
+#deathOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 18vh;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(80, 0, 0, 0.45));
+  color: #fff;
+  text-shadow: 0 1px 4px #000;
+}
+#deathOverlay h3 {
+  font-size: 22px;
+}
+#spectatingNote {
+  color: #ccc;
+  margin-top: 6px;
+}
+
+#clickToPlay {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 30px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 3px;
+  animation: pulse 1.4s infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}

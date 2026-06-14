@@ -3,7 +3,6 @@ import {
   DEFAULT_WEAPON,
   EYE_HEIGHT,
   INPUT_SEND_INTERVAL,
-  INTERP_DELAY,
   MAX_INPUT_DT,
   MOVE_SPEED,
   SOLIDS,
@@ -23,22 +22,19 @@ import type {
   WeaponType,
 } from '@cs/shared';
 import { playShot } from './audio.js';
+import { Effects } from './effects.js';
 import { Input } from './input.js';
+import { interpolatedPlayers, type SnapEntry } from './interpolation.js';
 import { GroundItems } from './items.js';
 import { buildWorld } from './mapMesh.js';
 import { Net } from './net.js';
 import { RemotePlayers, type RemoteState } from './players.js';
-import { Effects, Viewmodel } from './viewmodel.js';
+import { Viewmodel } from './viewmodel.js';
 
 const BASE_FOV = 80;
 const SCOPE_SENSITIVITY = 0.4;
 const PUNCH_DECAY = 6; // exponential decay rate, 1/s
 const PUNCH_MAX = 0.11; // rad
-
-interface SnapEntry {
-  time: number;
-  players: SnapPlayer[];
-}
 
 export interface GameHooks {
   onFrame(dt: number): void;
@@ -48,13 +44,6 @@ export interface GameHooks {
   onPickupHint(label: string | null): void;
   /** Current shot inaccuracy expressed as a crosshair gap in screen pixels. */
   onSpread(gapPx: number): void;
-}
-
-function lerpAngle(a: number, b: number, t: number): number {
-  let d = b - a;
-  while (d > Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
-  return a + d * t;
 }
 
 export class Game {
@@ -221,41 +210,95 @@ export class Game {
     return !!me?.team && (phase === 'countdown' || phase === 'live' || phase === 'round_end');
   }
 
-  /** Interpolated remote view at render time (server time minus interp delay). */
-  private interpolated(): Map<string, SnapPlayer> {
-    const out = new Map<string, SnapPlayer>();
-    if (this.snaps.length === 0) return out;
-    const renderTime = Date.now() + (this.timeOffset ?? 0) - INTERP_DELAY * 1000;
+  private updateZoomState(aliveActive: boolean): void {
+    // Zoom state: AWP only, while alive in a live round. Dropping any of those
+    // conditions clears the latch so the scope releases on death/round end/swap.
+    const canZoom = this.selfWeapon === 'awp' && aliveActive && this._room?.phase === 'live';
+    if (!canZoom) this.input.clearZoom();
+    const zoomed = canZoom && this.input.zoomLatch;
+    if (zoomed === this.zoomed) return;
 
-    let i1 = this.snaps.length - 1;
-    for (let i = 0; i < this.snaps.length; i++) {
-      if (this.snaps[i].time >= renderTime) {
-        i1 = i;
-        break;
-      }
+    this.zoomed = zoomed;
+    this.camera.fov = zoomed ? WEAPONS.awp.zoom!.fov : BASE_FOV;
+    this.camera.updateProjectionMatrix();
+    this.input.sensitivityScale = zoomed ? SCOPE_SENSITIVITY : 1;
+    this.hooks.onZoom(zoomed);
+  }
+
+  private processLocalInput(dt: number, active: boolean): void {
+    if (!active) return;
+    const inp = this.input.sample(Math.min(dt, MAX_INPUT_DT));
+    simulate(this.pred, inp, SOLIDS, this.isFrozen());
+    this.pendingInputs.push(inp);
+    this.outbox.push(inp);
+    this.sendTimer += dt;
+    if (this.sendTimer >= INPUT_SEND_INTERVAL) {
+      this.net.send({ t: 'inputs', inputs: this.outbox });
+      this.outbox = [];
+      this.sendTimer = 0;
     }
-    const s1 = this.snaps[i1];
-    const s0 = this.snaps[Math.max(0, i1 - 1)];
-    const span = s1.time - s0.time;
-    const t = span > 0 ? Math.min(1, Math.max(0, (renderTime - s0.time) / span)) : 1;
+  }
 
-    const prev = new Map(s0.players.map((p) => [p.id, p]));
-    for (const p1 of s1.players) {
-      const p0 = prev.get(p1.id);
-      if (!p0) {
-        out.set(p1.id, p1);
-        continue;
-      }
-      out.set(p1.id, {
-        ...p1,
-        x: p0.x + (p1.x - p0.x) * t,
-        y: p0.y + (p1.y - p0.y) * t,
-        z: p0.z + (p1.z - p0.z) * t,
-        yaw: lerpAngle(p0.yaw, p1.yaw, t),
-        pitch: p0.pitch + (p1.pitch - p0.pitch) * t,
+  private syncRemoteAvatars(interp: Map<string, SnapPlayer>, spectateId: string | null): void {
+    const roster = this.room?.players ?? [];
+    const states: RemoteState[] = [];
+    for (const [id, s] of interp) {
+      if (id === this.myId || id === spectateId) continue;
+      const entry = roster.find((p) => p.id === id);
+      if (!entry || s.team === null) continue;
+      states.push({
+        id,
+        name: entry.name,
+        team: s.team as Team,
+        x: s.x,
+        y: s.y,
+        z: s.z,
+        yaw: s.yaw,
+        pitch: s.pitch,
+        alive: s.alive,
+        weapon: s.weapon,
       });
     }
-    return out;
+    this.remotes.sync(states);
+  }
+
+  private updatePickupHint(aliveActive: boolean): void {
+    // Pickup hint: nearest droppable item of a different type within reach
+    // (same cylinder check the server uses).
+    let hint: string | null = null;
+    if (aliveActive && this._room) {
+      let bestD = Infinity;
+      for (const item of this._room.items) {
+        if (item.taken || item.type === this.selfWeapon) continue;
+        if (!canPickup(this.pred.x, this.pred.y, this.pred.z, item)) continue;
+        const d = Math.hypot(item.x - this.pred.x, item.z - this.pred.z);
+        if (d <= bestD) {
+          bestD = d;
+          hint = WEAPONS[item.type].name;
+        }
+      }
+    }
+    if (hint !== this.pickupHint) {
+      this.pickupHint = hint;
+      this.hooks.onPickupHint(hint);
+    }
+  }
+
+  private updateSpreadHud(aliveActive: boolean, speed: number): void {
+    // Crosshair spread: mirror the server's inaccuracy formula (movement +
+    // airborne + a recoil bump while spraying) and project it to pixels.
+    let gapPx = 0;
+    if (aliveActive) {
+      const spec = WEAPONS[this.selfWeapon];
+      const spread =
+        spec.baseSpread +
+        spec.moveSpread * Math.min(1, speed / MOVE_SPEED) +
+        (this.pred.grounded ? 0 : spec.airSpread) +
+        spec.sprayJitter * 10 * Math.min(1, this.punchPitch / 0.06);
+      const viewH = window.innerHeight || 720; // hidden windows report 0
+      gapPx = (Math.tan(spread) * (viewH / 2)) / Math.tan((this.camera.fov * Math.PI) / 360);
+    }
+    this.hooks.onSpread(gapPx);
   }
 
   // ---- per-frame ----
@@ -269,33 +312,10 @@ export class Game {
     this.punchPitch *= Math.exp(-PUNCH_DECAY * dt);
     if (this.punchPitch < 1e-4) this.punchPitch = 0;
 
-    // Zoom state: AWP only, while alive in a live round. Dropping any of those
-    // conditions clears the latch so the scope releases on death/round end/swap.
-    const canZoom = this.selfWeapon === 'awp' && aliveActive && this._room?.phase === 'live';
-    if (!canZoom) this.input.clearZoom();
-    const zoomed = canZoom && this.input.zoomLatch;
-    if (zoomed !== this.zoomed) {
-      this.zoomed = zoomed;
-      this.camera.fov = zoomed ? WEAPONS.awp.zoom!.fov : BASE_FOV;
-      this.camera.updateProjectionMatrix();
-      this.input.sensitivityScale = zoomed ? SCOPE_SENSITIVITY : 1;
-      this.hooks.onZoom(zoomed);
-    }
+    this.updateZoomState(aliveActive);
+    this.processLocalInput(dt, active);
 
-    if (active) {
-      const inp = this.input.sample(Math.min(dt, MAX_INPUT_DT));
-      simulate(this.pred, inp, SOLIDS, this.isFrozen());
-      this.pendingInputs.push(inp);
-      this.outbox.push(inp);
-      this.sendTimer += dt;
-      if (this.sendTimer >= INPUT_SEND_INTERVAL) {
-        this.net.send({ t: 'inputs', inputs: this.outbox });
-        this.outbox = [];
-        this.sendTimer = 0;
-      }
-    }
-
-    const interp = this.interpolated();
+    const interp = interpolatedPlayers(this.snaps, this.timeOffset);
     let spectateId: string | null = null;
     let spectateName: string | null = null;
 
@@ -326,63 +346,11 @@ export class Game {
     this.hooks.onSpectate(spectateName);
 
     // Remote avatars (hide self and whoever the camera is inside of)
-    const roster = this.room?.players ?? [];
-    const states: RemoteState[] = [];
-    for (const [id, s] of interp) {
-      if (id === this.myId || id === spectateId) continue;
-      const entry = roster.find((p) => p.id === id);
-      if (!entry || s.team === null) continue;
-      states.push({
-        id,
-        name: entry.name,
-        team: s.team as Team,
-        x: s.x,
-        y: s.y,
-        z: s.z,
-        yaw: s.yaw,
-        pitch: s.pitch,
-        alive: s.alive,
-        weapon: s.weapon,
-      });
-    }
-    this.remotes.sync(states);
-
-    // Pickup hint: nearest droppable item of a different type within reach
-    // (same cylinder check the server uses).
-    let hint: string | null = null;
-    if (aliveActive && this._room) {
-      let bestD = Infinity;
-      for (const item of this._room.items) {
-        if (item.taken || item.type === this.selfWeapon) continue;
-        if (!canPickup(this.pred.x, this.pred.y, this.pred.z, item)) continue;
-        const d = Math.hypot(item.x - this.pred.x, item.z - this.pred.z);
-        if (d <= bestD) {
-          bestD = d;
-          hint = WEAPONS[item.type].name;
-        }
-      }
-    }
-    if (hint !== this.pickupHint) {
-      this.pickupHint = hint;
-      this.hooks.onPickupHint(hint);
-    }
+    this.syncRemoteAvatars(interp, spectateId);
+    this.updatePickupHint(aliveActive);
 
     const speed = Math.hypot(this.pred.vx, this.pred.vz);
-
-    // Crosshair spread: mirror the server's inaccuracy formula (movement +
-    // airborne + a recoil bump while spraying) and project it to pixels.
-    let gapPx = 0;
-    if (aliveActive) {
-      const spec = WEAPONS[this.selfWeapon];
-      const spread =
-        spec.baseSpread +
-        spec.moveSpread * Math.min(1, speed / MOVE_SPEED) +
-        (this.pred.grounded ? 0 : spec.airSpread) +
-        spec.sprayJitter * 10 * Math.min(1, this.punchPitch / 0.06);
-      const viewH = window.innerHeight || 720; // hidden windows report 0
-      gapPx = (Math.tan(spread) * (viewH / 2)) / Math.tan((this.camera.fov * Math.PI) / 360);
-    }
-    this.hooks.onSpread(gapPx);
+    this.updateSpreadHud(aliveActive, speed);
 
     this.viewmodel.group.visible = aliveActive && !this.zoomed;
     this.viewmodel.update(dt, aliveActive ? speed : 0, aliveActive && this.selfReloading);

@@ -1,68 +1,20 @@
-﻿// Verifies weapon pickup: Alice walks from T spawn to the M4 ground item,
+// Verifies weapon pickup: Alice walks from T spawn to the M4 ground item,
 // presses E, and we assert the weapon swap + the dropped AK appearing.
 // Usage: node scripts/pickup-test.mjs   (expects the server running on :3001)
-import WebSocket from 'ws';
+import { fail, roomName, sleep, TestClient, until } from './ws-test-client.mjs';
 
-import { gamePort } from './port.mjs';
+const ROOM = roomName('pickup');
 
-const URL = `ws://localhost:${gamePort()}/ws`;
-const ROOM = 'pickup-' + Date.now();
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const a = new TestClient('Alice', ROOM);
+const b = new TestClient('Bob', ROOM);
 
-function fail(msg) {
-  console.error('FAIL:', msg);
-  process.exit(1);
-}
-
-function mkClient(name) {
-  const c = { name, id: null, room: null, you: null, players: [], seq: 0 };
-  c.ready = new Promise((resolve) => {
-    c.ws = new WebSocket(URL);
-    c.ws.on('open', () => {
-      c.ws.send(JSON.stringify({ t: 'hello', name, avatarUrl: null, instanceId: ROOM }));
-      resolve();
-    });
-    c.ws.on('message', (raw) => {
-      const m = JSON.parse(raw.toString());
-      if (m.t === 'welcome') { c.id = m.id; c.room = m.room; }
-      else if (m.t === 'room') c.room = m.room;
-      else if (m.t === 'snap') { c.you = m.you; c.players = m.players; }
-    });
-  });
-  c.input = (f) =>
-    c.ws.send(
-      JSON.stringify({
-        t: 'inputs',
-        inputs: [
-          {
-            seq: ++c.seq, dt: 0.033, mx: 0, mz: 0, jump: false,
-            yaw: 0, pitch: 0, fire: false, reload: false, use: false, zoom: false,
-            ...f,
-          },
-        ],
-      }),
-    );
-  return c;
-}
-
-async function until(desc, cond, timeoutMs = 10000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < timeoutMs) {
-    if (cond()) return;
-    await sleep(50);
-  }
-  fail(`timeout: ${desc}`);
-}
-
-const a = mkClient('Alice');
-const b = mkClient('Bob');
-await a.ready;
-await b.ready;
+await a.connect();
+await b.connect();
 await sleep(200);
-a.ws.send(JSON.stringify({ t: 'team', team: 'T' }));
-b.ws.send(JSON.stringify({ t: 'team', team: 'CT' }));
+a.join('T');
+b.join('CT');
 await until('teams', () => a.room?.players?.filter((p) => p.team).length === 2);
-a.ws.send(JSON.stringify({ t: 'start' }));
+a.start();
 await until('live', () => a.room.phase === 'live', 8000);
 await sleep(150);
 
@@ -127,7 +79,7 @@ a.input({ use: true });
 await until('swap back to ak47', () => a.you?.weapon === 'ak47', 3000);
 console.log('ok: swapped back to AK; items now:', JSON.stringify(a.room.items));
 
-// AWP must be grabbable from BESIDE its crate (cylinder pickup, no jumping).
+// AWP must be grabbable from beside its crate (cylinder pickup, no jumping).
 const awp = nearestLowItem('awp');
 if (!awp) fail('no awp item after pickup swap');
 async function walkTo(tx, tz, timeoutMs = 15000) {
@@ -141,6 +93,7 @@ async function walkTo(tx, tz, timeoutMs = 15000) {
   }
   fail(`never reached (${tx}, ${tz}) - stuck at (${a.you.x.toFixed(1)}, ${a.you.z.toFixed(1)})`);
 }
+
 // Route toward the AWP, then stop beside its crate.
 const sideZ = awp.z + (awp.z > a.you.z ? -1.4 : 1.4);
 await walkTo((a.you.x + awp.x) / 2, (a.you.z + sideZ) / 2);
@@ -149,13 +102,11 @@ a.input({ use: true });
 await until('AWP picked up from beside the crate', () => a.you?.weapon === 'awp', 3000);
 console.log(`ok: grabbed the AWP from beside the crate (standing at y=${a.you.y.toFixed(2)})`);
 
-// Round reset restores layout + default weapon: kill Alice's connection? Simpler:
-// Bob disconnect-forfeit path is covered by e2e. Here check items reset on round end:
-// have Bob leave -> T wins round -> next round (needs both teams, so just assert via
-// a fresh round by reconnecting is overkill). Instead verify weapon snapshot fields:
 const bobSnap = a.players.find((p) => p.id === b.id);
 if (bobSnap.weapon !== 'ak47') fail(`Bob's snapshot weapon wrong: ${bobSnap.weapon}`);
 console.log('ok: snapshots carry weapon for all players');
 
 console.log('\nPICKUP TEST PASSED');
+a.close();
+b.close();
 process.exit(0);

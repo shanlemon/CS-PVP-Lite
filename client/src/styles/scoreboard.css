@@ -1,0 +1,58 @@
+/* ---- scoreboard ---- */
+#scoreboard {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px;
+  background: rgba(8, 8, 8, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 18px 22px;
+  color: #ddd;
+}
+#scoreboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+#scoreboard th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #888;
+  padding: 6px 8px;
+}
+#scoreboard td {
+  padding: 6px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+#scoreboard .team-head {
+  font-weight: 800;
+  padding-top: 12px;
+}
+#scoreboard .team-head.t {
+  color: #e8a33d;
+}
+#scoreboard .team-head.ct {
+  color: #6fa8ff;
+}
+#scoreboard .dead {
+  color: #777;
+}
+
+/* ---- match end ---- */
+#matchEnd h1 {
+  font-size: 40px;
+  letter-spacing: 3px;
+}
+#matchEnd h1.t {
+  color: #ffc168;
+}
+#matchEnd h1.ct {
+  color: #8fc1ff;
+}
+#finalBoard {
+  min-width: 420px;
+}

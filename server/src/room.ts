@@ -1,72 +1,37 @@
 import {
   COUNTDOWN_TIME,
-  DEFAULT_WEAPON,
-  EYE_HEIGHT,
-  ITEM_SPAWNS,
-  MAX_HP,
-  MOVE_SPEED,
   ROUNDS_TO_WIN,
   ROUND_END_TIME,
-  SHOT_RANGE,
   SOLIDS,
   SPAWN_SLOTS,
   TEAM_SIZE,
   TICK_RATE,
   WEAPONS,
-  canPickup,
-  castShot,
   simulate,
   spawnPoint,
-  sprayOffset,
-  viewDir,
 } from '@cs/shared';
 import type {
   ClientMsg,
-  InputFrame,
   ItemState,
-  KinematicState,
   Phase,
   RoomState,
-  ServerMsg,
-  SnapPlayer,
   Team,
-  WeaponType,
 } from '@cs/shared';
-import { randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
-import { BOT_NAMES, BotBrain } from './bot.js';
-import type { BotEnemyView, BotSelfView, BotWorldView } from './bot.js';
+import { BotBrain } from './bot.js';
+import { BOT_NAMES } from './botConfig.js';
+import { buildBotSelfView, buildBotWorldView } from './botView.js';
+import { tryFire, tryReload } from './combat.js';
+import { buildDamageReportRows } from './damageReport.js';
+import { enqueueInputs } from './inputQueue.js';
+import { createRoundItems, tryPickupItem } from './items.js';
 import { NavGrid } from './nav.js';
+import { createPlayer, resetPlayerForRound, type SPlayer } from './player.js';
+import { broadcast, broadcastSnap, send } from './roomMessaging.js';
+import { buildRoomState } from './roomState.js';
 
 const MAX_INPUTS_PER_TICK = 10;
 const MAX_QUEUE = 90;
-
-interface SPlayer {
-  id: string;
-  ws: WebSocket | null; // null = server-side bot
-  brain: BotBrain | null;
-  botSeq: number;
-  name: string;
-  avatarUrl: string | null;
-  team: Team | null;
-  kin: KinematicState;
-  yaw: number;
-  pitch: number;
-  hp: number;
-  alive: boolean;
-  weapon: WeaponType;
-  mag: number;
-  reloadUntil: number; // epoch ms, 0 = not reloading
-  lastFireAt: number; // epoch ms
-  sprayIndex: number; // shots into the current spray pattern
-  zoomed: boolean; // latest input zoom flag (AWP scope)
-  kills: number;
-  deaths: number;
-  lastSeq: number;
-  queue: InputFrame[];
-  /** Damage dealt this round, keyed by victim id (for the end-of-round report). */
-  dmgGiven: Map<string, { dmg: number; hits: number; killed: boolean }>;
-}
 
 export class Room {
   readonly instanceId: string;
@@ -93,34 +58,16 @@ export class Room {
   // ---- connection lifecycle ----
 
   addPlayer(ws: WebSocket, name: string, avatarUrl: string | null): void {
-    const p: SPlayer = {
-      id: randomUUID().slice(0, 8),
+    const p = createPlayer({
       ws,
       brain: null,
-      botSeq: 0,
       name: name.slice(0, 32) || 'Player',
       avatarUrl,
       team: null,
-      kin: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, grounded: true },
-      yaw: 0,
-      pitch: 0,
-      hp: MAX_HP,
-      alive: false,
-      weapon: DEFAULT_WEAPON,
-      mag: WEAPONS[DEFAULT_WEAPON].magSize,
-      reloadUntil: 0,
-      lastFireAt: 0,
-      sprayIndex: 0,
-      zoomed: false,
-      kills: 0,
-      deaths: 0,
-      lastSeq: 0,
-      queue: [],
-      dmgGiven: new Map(),
-    };
+    });
     this.players.set(p.id, p);
     this.wsToId.set(ws, p.id);
-    this.send(ws, { t: 'welcome', id: p.id, room: this.roomState() });
+    send(ws, { t: 'welcome', id: p.id, room: this.roomState() });
     this.broadcastRoom();
   }
 
@@ -167,13 +114,7 @@ export class Room {
         break;
       case 'inputs':
         if (Array.isArray(msg.inputs)) {
-          for (const inp of msg.inputs) {
-            const newest = p.queue.length > 0 ? p.queue[p.queue.length - 1].seq : p.lastSeq;
-            if (typeof inp?.seq === 'number' && inp.seq > newest) {
-              p.queue.push(inp);
-            }
-          }
-          if (p.queue.length > MAX_QUEUE) p.queue.splice(0, p.queue.length - MAX_QUEUE);
+          enqueueInputs(p, msg.inputs, MAX_QUEUE);
         }
         break;
     }
@@ -202,31 +143,13 @@ export class Room {
     const used = new Set([...this.players.values()].map((p) => p.name));
     const free = BOT_NAMES.find((n) => !used.has(`BOT ${n}`));
     const seed = this.nextBotSeed++;
-    const bot: SPlayer = {
-      id: randomUUID().slice(0, 8),
+    const bot = createPlayer({
       ws: null,
       brain: new BotBrain(seed),
-      botSeq: 0,
       name: `BOT ${free ?? `Unit-${seed}`}`,
       avatarUrl: null,
       team,
-      kin: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, grounded: true },
-      yaw: 0,
-      pitch: 0,
-      hp: MAX_HP,
-      alive: false,
-      weapon: DEFAULT_WEAPON,
-      mag: WEAPONS[DEFAULT_WEAPON].magSize,
-      reloadUntil: 0,
-      lastFireAt: 0,
-      sprayIndex: 0,
-      zoomed: false,
-      kills: 0,
-      deaths: 0,
-      lastSeq: 0,
-      queue: [],
-      dmgGiven: new Map(),
-    };
+    });
     this.players.set(bot.id, bot);
     this.broadcastRoom();
   }
@@ -243,43 +166,8 @@ export class Room {
   private thinkBots(): void {
     for (const p of this.players.values()) {
       if (p.brain === null || p.team === null) continue;
-      const selfView: BotSelfView = {
-        id: p.id,
-        team: p.team,
-        x: p.kin.x,
-        y: p.kin.y,
-        z: p.kin.z,
-        yaw: p.yaw,
-        pitch: p.pitch,
-        grounded: p.kin.grounded,
-        hp: p.hp,
-        mag: p.mag,
-        reloading: p.reloadUntil !== 0,
-        weapon: p.weapon,
-        alive: p.alive,
-      };
-      const eye = { x: p.kin.x, y: p.kin.y + EYE_HEIGHT, z: p.kin.z };
-      const enemies: BotEnemyView[] = [];
-      for (const o of this.players.values()) {
-        if (o === p || !o.alive || o.team === null || o.team === p.team) continue;
-        const dx = o.kin.x - eye.x;
-        const dy = o.kin.y + EYE_HEIGHT - eye.y;
-        const dz = o.kin.z - eye.z;
-        const distance = Math.hypot(dx, dy, dz);
-        let visible = true;
-        if (distance > 1e-6) {
-          const dir = { x: dx / distance, y: dy / distance, z: dz / distance };
-          // LOS: ray vs world solids only; unobstructed when it travels the
-          // full eye-to-eye distance.
-          visible = castShot(eye, dir, SOLIDS, [], distance).t >= distance - 0.1;
-        }
-        enemies.push({ id: o.id, x: o.kin.x, y: o.kin.y, z: o.kin.z, visible, distance });
-      }
-      const world: BotWorldView = {
-        enemies,
-        items: this.items.filter((i) => !i.taken),
-        phase: this.phase,
-      };
+      const selfView = buildBotSelfView(p, p.team);
+      const world = buildBotWorldView(p, p.team, this.players.values(), this.items, this.phase);
       const frame = p.brain.think(selfView, world, this.nav, 1 / TICK_RATE);
       p.queue.push({ ...frame, seq: ++p.botSeq });
     }
@@ -334,19 +222,7 @@ export class Room {
       const spawnSlots = this.randomSpawnSlots(team, members.length);
       members.forEach((p, slot) => {
         const sp = spawnPoint(team, spawnSlots[slot] ?? slot);
-        p.kin = { x: sp.pos.x, y: sp.pos.y, z: sp.pos.z, vx: 0, vy: 0, vz: 0, grounded: true };
-        p.yaw = sp.yaw;
-        p.pitch = 0;
-        p.hp = MAX_HP;
-        p.alive = true;
-        p.weapon = DEFAULT_WEAPON;
-        p.mag = WEAPONS[DEFAULT_WEAPON].magSize;
-        p.reloadUntil = 0;
-        p.lastFireAt = 0;
-        p.sprayIndex = 0;
-        p.zoomed = false;
-        p.dmgGiven.clear();
-        if (p.brain !== null) p.brain.reset();
+        resetPlayerForRound(p, sp.pos, sp.yaw);
       });
     }
     this.broadcastRoom();
@@ -366,18 +242,7 @@ export class Room {
   private sendDamageReports(): void {
     for (const p of this.players.values()) {
       if (p.ws === null) continue;
-      const rows = [...p.dmgGiven.entries()].map(([victimId, e]) => {
-        const victim = this.players.get(victimId);
-        return {
-          name: victim?.name ?? 'Disconnected',
-          team: victim?.team ?? null,
-          dmg: e.dmg,
-          hits: e.hits,
-          killed: e.killed,
-        };
-      });
-      rows.sort((a, b) => b.dmg - a.dmg);
-      this.send(p.ws, { t: 'damageReport', rows });
+      send(p.ws, { t: 'damageReport', rows: buildDamageReportRows(p, this.players) });
     }
   }
 
@@ -419,46 +284,12 @@ export class Room {
   // ---- items ----
 
   private resetItems(): void {
-    this.items = ITEM_SPAWNS.map((s) => ({
-      id: this.nextItemId++,
-      type: s.type,
-      x: s.x,
-      y: s.y,
-      z: s.z,
-      taken: false,
-    }));
+    this.items = createRoundItems(() => this.nextItemId++);
   }
 
   private tryPickup(p: SPlayer): void {
     if (!p.alive || (this.phase !== 'countdown' && this.phase !== 'live')) return;
-    let best: ItemState | null = null;
-    let bestDist = Infinity;
-    for (const item of this.items) {
-      if (item.taken || item.type === p.weapon) continue;
-      if (!canPickup(p.kin.x, p.kin.y, p.kin.z, item)) continue;
-      const d = Math.hypot(item.x - p.kin.x, item.z - p.kin.z);
-      if (d <= bestDist) {
-        bestDist = d;
-        best = item;
-      }
-    }
-    if (best === null) return;
-    best.taken = true;
-    // Drop the current gun where the player stands.
-    this.items.push({
-      id: this.nextItemId++,
-      type: p.weapon,
-      x: p.kin.x,
-      y: p.kin.grounded ? p.kin.y : 0,
-      z: p.kin.z,
-      taken: false,
-    });
-    p.weapon = best.type;
-    p.mag = WEAPONS[best.type].magSize;
-    p.reloadUntil = 0;
-    p.sprayIndex = 0;
-    p.lastFireAt = 0;
-    this.broadcastRoom();
+    if (tryPickupItem(p, this.items, () => this.nextItemId++)) this.broadcastRoom();
   }
 
   // ---- simulation ----
@@ -489,8 +320,11 @@ export class Room {
         }
         p.lastSeq = inp.seq;
         if (!frozen) {
-          if (inp.reload) this.tryReload(p, now);
-          if (inp.fire) this.tryFire(p, now);
+          if (inp.reload) tryReload(p, now);
+          if (inp.fire && tryFire(p, this.players, now)) {
+            this.broadcastRoom();
+            this.checkRoundOver();
+          }
         }
         if (inp.use === true) this.tryPickup(p);
       }
@@ -514,84 +348,7 @@ export class Room {
     }
 
     this.checkRoundOver();
-    this.broadcastSnap(now);
-  }
-
-  private tryReload(p: SPlayer, now: number): void {
-    const spec = WEAPONS[p.weapon];
-    if (p.reloadUntil !== 0 || p.mag >= spec.magSize) return;
-    p.reloadUntil = now + spec.reloadTime * 1000;
-    p.sprayIndex = 0;
-  }
-
-  private tryFire(p: SPlayer, now: number): void {
-    const spec = WEAPONS[p.weapon];
-    if (now - p.lastFireAt < spec.fireInterval * 1000) return;
-    if (p.reloadUntil !== 0) return;
-    if (p.mag <= 0) {
-      this.tryReload(p, now);
-      return;
-    }
-    // Deterministic spray pattern: reset after a pause, then advance.
-    if (now - p.lastFireAt > spec.sprayResetTime * 1000) p.sprayIndex = 0;
-    const [yawOff, pitchOff] = sprayOffset(spec, p.sprayIndex);
-    p.sprayIndex++;
-    p.lastFireAt = now;
-    p.mag--;
-
-    // Random inaccuracy (half-angle, radians).
-    const speed = Math.hypot(p.kin.vx, p.kin.vz);
-    let inacc =
-      spec.zoom !== null
-        ? p.zoomed
-          ? spec.zoom.spreadScoped
-          : spec.baseSpread
-        : spec.baseSpread + spec.sprayJitter * Math.min(p.sprayIndex, 10);
-    inacc +=
-      spec.moveSpread * Math.min(1, speed / MOVE_SPEED) +
-      (p.kin.grounded ? 0 : spec.airSpread);
-
-    const yaw = p.yaw + (Math.random() - 0.5) * 2 * inacc + yawOff;
-    const pitch = p.pitch + (Math.random() - 0.5) * 2 * inacc + pitchOff;
-    const dir = viewDir(yaw, pitch);
-    const origin = { x: p.kin.x, y: p.kin.y + EYE_HEIGHT, z: p.kin.z };
-
-    const targets = [...this.players.values()]
-      .filter((o) => o !== p && o.alive && o.team !== null && o.team !== p.team)
-      .map((o) => ({ id: o.id, x: o.kin.x, y: o.kin.y, z: o.kin.z }));
-
-    const result = castShot(origin, dir, SOLIDS, targets, SHOT_RANGE);
-    this.broadcast({ t: 'shot', shooterId: p.id, from: origin, to: result.point, weapon: p.weapon });
-
-    if (result.playerId !== null) {
-      const victim = this.players.get(result.playerId);
-      if (!victim || !victim.alive) return;
-      const dmg = result.headshot ? spec.dmgHead : spec.dmgBody;
-      // Damage report bookkeeping (capped at the HP actually removed, CS-style)
-      const dealt = Math.min(dmg, victim.hp);
-      const entry = p.dmgGiven.get(victim.id) ?? { dmg: 0, hits: 0, killed: false };
-      entry.dmg += dealt;
-      entry.hits++;
-      victim.hp = Math.max(0, victim.hp - dmg);
-      if (victim.hp <= 0) entry.killed = true;
-      p.dmgGiven.set(victim.id, entry);
-      this.send(p.ws, { t: 'hitmark', headshot: result.headshot });
-      this.send(victim.ws, {
-        t: 'damage',
-        fromX: p.kin.x,
-        fromZ: p.kin.z,
-        amount: dmg,
-        hp: victim.hp,
-      });
-      if (victim.hp <= 0) {
-        victim.alive = false;
-        victim.deaths++;
-        p.kills++;
-        this.broadcast({ t: 'kill', killerId: p.id, victimId: victim.id, headshot: result.headshot });
-        this.broadcastRoom();
-        this.checkRoundOver();
-      }
-    }
+    broadcastSnap(this.players.values(), now);
   }
 
   // ---- state + messaging ----
@@ -601,77 +358,19 @@ export class Room {
   }
 
   private roomState(): RoomState {
-    return {
+    return buildRoomState({
       phase: this.phase,
-      scores: { ...this.scores },
+      scores: this.scores,
       phaseEndsAt: this.phaseEndsAt,
       roundWinner: this.roundWinner,
       matchWinner: this.matchWinner,
-      players: [...this.players.values()].map((p) => ({
-        id: p.id,
-        name: p.name,
-        avatarUrl: p.avatarUrl,
-        team: p.team,
-        kills: p.kills,
-        deaths: p.deaths,
-        alive: p.alive,
-        bot: p.ws === null,
-      })),
-      items: this.items.filter((i) => !i.taken),
-    };
+      players: this.players.values(),
+      items: this.items,
+    });
   }
 
   private broadcastRoom(): void {
-    this.broadcast({ t: 'room', room: this.roomState() });
+    broadcast(this.players.values(), { t: 'room', room: this.roomState() });
   }
 
-  private broadcastSnap(now: number): void {
-    const players: SnapPlayer[] = [...this.players.values()]
-      .filter((p) => p.team !== null)
-      .map((p) => ({
-        id: p.id,
-        x: p.kin.x,
-        y: p.kin.y,
-        z: p.kin.z,
-        yaw: p.yaw,
-        pitch: p.pitch,
-        alive: p.alive,
-        team: p.team,
-        weapon: p.weapon,
-      }));
-    for (const p of this.players.values()) {
-      if (p.ws === null) continue; // bots don't receive snapshots
-      const you =
-        p.team !== null
-          ? {
-              x: p.kin.x,
-              y: p.kin.y,
-              z: p.kin.z,
-              vx: p.kin.vx,
-              vy: p.kin.vy,
-              vz: p.kin.vz,
-              grounded: p.kin.grounded,
-              hp: p.hp,
-              mag: p.mag,
-              reloading: p.reloadUntil !== 0,
-              lastSeq: p.lastSeq,
-              weapon: p.weapon,
-            }
-          : null;
-      this.send(p.ws, { t: 'snap', time: now, players, you });
-    }
-  }
-
-  private send(ws: WebSocket | null, msg: ServerMsg): void {
-    if (ws !== null && ws.readyState === ws.OPEN) {
-      ws.send(JSON.stringify(msg));
-    }
-  }
-
-  private broadcast(msg: ServerMsg): void {
-    const data = JSON.stringify(msg);
-    for (const p of this.players.values()) {
-      if (p.ws !== null && p.ws.readyState === p.ws.OPEN) p.ws.send(data);
-    }
-  }
 }

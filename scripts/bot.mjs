@@ -1,11 +1,11 @@
 ﻿// Simple bot for manual testing: joins the 'dev' room on team CT, streams idle
 // inputs, and slowly looks around. Usage: node scripts/bot.mjs [name] [team]
 import WebSocket from 'ws';
-import { gamePort } from './port.mjs';
+import { WS_URL } from './ws-test-client.mjs';
 
 const name = process.argv[2] ?? 'Bot';
 const team = process.argv[3] ?? 'CT';
-const ws = new WebSocket(`ws://localhost:${gamePort()}/ws`);
+const ws = new WebSocket(WS_URL);
 let seq = 0;
 let yaw = team === 'CT' ? Math.PI : 0;
 
