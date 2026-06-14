@@ -2,6 +2,7 @@ import {
   PLAYER_BOUNDS,
   PLAYER_HALF_WIDTH,
   PLAYER_HEIGHT,
+  SPAWN_SLOTS,
   SOLIDS,
 } from '../shared/src/index.ts';
 import { simulate } from '../shared/src/physics.ts';
@@ -40,6 +41,45 @@ const directions = [
   { name: '+z', yaw: Math.PI },
   { name: '-z', yaw: 0 },
 ];
+
+for (const [team, slots] of Object.entries(SPAWN_SLOTS)) {
+  for (const [idx, spawn] of slots.entries()) {
+    if (spawn.y > 0.05) fail(`${team} spawn ${idx} starts above ground at y=${spawn.y}`);
+    if (overlapsPlayer(spawn)) fail(`${team} spawn ${idx} starts inside a platform/solid`);
+  }
+}
+
+const rampChecks = [
+  { name: 'T lower west platform', start: { x: -9, y: 0, z: 6.5 }, yaw: Math.PI / 2 },
+  { name: 'T back west platform', start: { x: -6, y: 0, z: 11 }, yaw: Math.PI / 2 },
+  { name: 'CT back east platform', start: { x: 6, y: 0, z: -10 }, yaw: -Math.PI / 2 },
+  { name: 'CT lower east platform', start: { x: 9, y: 0, z: -6 }, yaw: -Math.PI / 2 },
+];
+
+for (const check of rampChecks) {
+  const p = { ...check.start, vx: 0, vy: 0, vz: 0, grounded: true };
+  for (let i = 0; i < 180; i += 1) {
+    simulate(
+      p,
+      {
+        seq: i,
+        dt: 0.033,
+        mx: 0,
+        mz: 1,
+        jump: false,
+        yaw: check.yaw,
+        pitch: 0,
+        fire: false,
+        reload: false,
+        use: false,
+        zoom: false,
+      },
+      SOLIDS,
+      false,
+    );
+  }
+  if (p.y < 0.9) fail(`${check.name} is not reachable; ended at y=${p.y.toFixed(2)}`);
+}
 
 const starts = [];
 for (let x = Math.ceil(PLAYER_BOUNDS.minX); x <= Math.floor(PLAYER_BOUNDS.maxX); x += 1) {
