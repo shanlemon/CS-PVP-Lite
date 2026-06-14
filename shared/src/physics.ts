@@ -11,6 +11,7 @@ import {
   PLAYER_HEIGHT,
   STEP_HEIGHT,
 } from './constants.js';
+import { PLAYER_BOUNDS } from './map.js';
 import type { Box, InputFrame, KinematicState, Solid, Vec3 } from './types.js';
 
 const EPS = 1e-4;
@@ -81,6 +82,30 @@ export function simulate(p: KinematicState, inp: InputFrame, solids: Solid[], fr
   moveAxis(p, solids, p.vx * dt, 'x');
   moveAxis(p, solids, p.vz * dt, 'z');
   moveVertical(p, solids, p.vy * dt);
+  clampToPlayerBounds(p);
+}
+
+function clampToPlayerBounds(p: KinematicState): void {
+  const minX = PLAYER_BOUNDS.minX + PLAYER_HALF_WIDTH + EPS;
+  const maxX = PLAYER_BOUNDS.maxX - PLAYER_HALF_WIDTH - EPS;
+  const minZ = PLAYER_BOUNDS.minZ + PLAYER_HALF_WIDTH + EPS;
+  const maxZ = PLAYER_BOUNDS.maxZ - PLAYER_HALF_WIDTH - EPS;
+
+  if (p.x < minX) {
+    p.x = minX;
+    if (p.vx < 0) p.vx = 0;
+  } else if (p.x > maxX) {
+    p.x = maxX;
+    if (p.vx > 0) p.vx = 0;
+  }
+
+  if (p.z < minZ) {
+    p.z = minZ;
+    if (p.vz < 0) p.vz = 0;
+  } else if (p.z > maxZ) {
+    p.z = maxZ;
+    if (p.vz > 0) p.vz = 0;
+  }
 }
 
 function moveAxis(p: KinematicState, solids: Solid[], delta: number, axis: 'x' | 'z'): void {

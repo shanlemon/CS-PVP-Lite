@@ -18,6 +18,13 @@ const SOURCE_FLOOR_Z = -16;
 const SOURCE_XZ_SCALE = 40;
 const SOURCE_Y_SCALE = 48;
 
+export const PLAYER_BOUNDS = {
+  minX: sourceX(-360),
+  maxX: sourceX(848),
+  minZ: sourceZ(-456),
+  maxZ: sourceZ(1024),
+} as const;
+
 type SourceBox = readonly [number, number, number, number, number, number];
 
 const SOURCE_CRATE_BOXES: SourceBox[] = [
