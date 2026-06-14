@@ -124,31 +124,71 @@ export interface ItemState {
   taken: boolean;
 }
 
-const CRATE_TOP_Y = 1.35;
-const PLATFORM_TOP_Y = 1.0;
-const PLATFORM_CRATE_TOP_Y = 2.35;
-
 /**
- * Items placed at the start of every round. The first few preserve the pickup
- * test flow; the rest mimic aim_map's floor and crate-top rifle scatter in
- * mirrored pairs so neither team spawns closer to an upgrade.
+ * Items placed at the start of every round. These are converted from the
+ * original CS:GO aim_map BSP weapon entities.
  */
 export const ITEM_SPAWNS: ReadonlyArray<{ type: WeaponType; x: number; y: number; z: number }> = [
-  { type: 'm4a4', x: -9.5, y: 0, z: 0 }, // on the ground, mid-west
-  { type: 'm4a4', x: 9.5, y: 0, z: 0 }, // on the ground, mid-east
-  { type: 'awp', x: 0.6, y: CRATE_TOP_Y, z: 0 }, // on top of the center crate
-  { type: 'awp', x: -10.9, y: CRATE_TOP_Y, z: 7.2 }, // on a crate in the T half
-  { type: 'awp', x: 10.9, y: CRATE_TOP_Y, z: -7.2 }, // mirrored crate in the CT half
-  { type: 'm4a4', x: -6.5, y: PLATFORM_TOP_Y, z: 21.0 },
-  { type: 'm4a4', x: 6.5, y: PLATFORM_TOP_Y, z: 21.0 },
-  { type: 'm4a4', x: 6.5, y: PLATFORM_TOP_Y, z: -21.0 },
-  { type: 'm4a4', x: -6.5, y: PLATFORM_TOP_Y, z: -21.0 },
-  { type: 'awp', x: -11.2, y: PLATFORM_CRATE_TOP_Y, z: 21.8 },
-  { type: 'awp', x: 11.2, y: PLATFORM_CRATE_TOP_Y, z: -21.8 },
+  { type: 'm4a4', x: -10.457, y: 0, z: -16.539 },
+  { type: 'ak47', x: -10.457, y: 0, z: -15.339 },
+  { type: 'm4a4', x: -10.457, y: 0, z: -14.139 },
+  { type: 'ak47', x: -10.457, y: 0, z: -12.939 },
+  { type: 'm4a4', x: -8.417, y: 0, z: -16.539 },
+  { type: 'ak47', x: -8.417, y: 0, z: -15.339 },
+  { type: 'm4a4', x: -8.417, y: 0, z: -14.139 },
+  { type: 'ak47', x: -8.417, y: 0, z: -12.939 },
+  { type: 'm4a4', x: -5.457, y: 0, z: -16.539 },
+  { type: 'ak47', x: -5.457, y: 0, z: -15.339 },
+  { type: 'm4a4', x: -5.457, y: 0, z: -14.139 },
+  { type: 'awp', x: -2.9, y: 3, z: -8.975 },
+  { type: 'm4a4', x: -3.117, y: 0, z: -16.539 },
+  { type: 'ak47', x: -3.117, y: 0, z: -15.339 },
+  { type: 'm4a4', x: -3.117, y: 0, z: -14.139 },
+  { type: 'ak47', x: -3.117, y: 0, z: -12.939 },
+  { type: 'm4a4', x: 0.743, y: 0, z: -16.241 },
+  { type: 'ak47', x: 0.743, y: 0, z: -15.041 },
+  { type: 'm4a4', x: 0.743, y: 0, z: -13.841 },
+  { type: 'ak47', x: 0.743, y: 0, z: -12.641 },
+  { type: 'm4a4', x: 2.883, y: 0, z: -16.441 },
+  { type: 'ak47', x: 2.883, y: 0, z: -15.241 },
+  { type: 'm4a4', x: 2.883, y: 0, z: -14.041 },
+  { type: 'ak47', x: 2.883, y: 0, z: -12.841 },
+  { type: 'ak47', x: 4.883, y: 0, z: 15.21 },
+  { type: 'ak47', x: -3.357, y: 0, z: 15.31 },
+  { type: 'ak47', x: -3.357, y: 0, z: 12.91 },
+  { type: 'ak47', x: 9.883, y: 0, z: 13.31 },
+  { type: 'ak47', x: 4.883, y: 0, z: 12.81 },
+  { type: 'ak47', x: 7.283, y: 0, z: 15.312 },
+  { type: 'ak47', x: -1.217, y: 0, z: 12.71 },
+  { type: 'ak47', x: 2.543, y: 0, z: 15.21 },
+  { type: 'ak47', x: 2.543, y: 0, z: 12.81 },
+  { type: 'ak47', x: 7.283, y: 0, z: 12.912 },
+  { type: 'ak47', x: -1.217, y: 0, z: 15.11 },
+  { type: 'ak47', x: 9.883, y: 0, z: 15.71 },
+  { type: 'm4a4', x: -3.357, y: 0, z: 14.11 },
+  { type: 'm4a4', x: -3.357, y: 0, z: 16.51 },
+  { type: 'm4a4', x: 4.883, y: 0, z: 14.01 },
+  { type: 'm4a4', x: 2.543, y: 0, z: 16.41 },
+  { type: 'm4a4', x: 2.543, y: 0, z: 14.01 },
+  { type: 'm4a4', x: -1.217, y: 0, z: 16.31 },
+  { type: 'm4a4', x: -1.217, y: 0, z: 13.91 },
+  { type: 'm4a4', x: 7.283, y: 0, z: 14.112 },
+  { type: 'm4a4', x: 4.883, y: 0, z: 16.41 },
+  { type: 'm4a4', x: 7.283, y: 0, z: 16.512 },
+  { type: 'm4a4', x: 9.9, y: 0, z: 14.4 },
+  { type: 'm4a4', x: 9.883, y: 0, z: 16.91 },
+  { type: 'awp', x: -11.5, y: 3, z: -10.175 },
+  { type: 'awp', x: -7.7, y: 5.333, z: -19.7 },
+  { type: 'awp', x: 8.1, y: 5.333, z: -19.8 },
+  { type: 'awp', x: 7, y: 5.333, z: 19.7 },
+  { type: 'awp', x: -8.9, y: 5.333, z: 19.6 },
+  { type: 'awp', x: 2.5, y: 3, z: 8.325 },
+  { type: 'awp', x: 11.1, y: 3, z: 9.625 },
+  { type: 'ak47', x: -5.4, y: 0, z: -13 },
 ];
 
 export const PICKUP_RADIUS = 1.6; // meters, horizontal distance from player feet
-export const PICKUP_HEIGHT = 2.0; // meters, vertical tolerance (crate-top items grab from beside)
+export const PICKUP_HEIGHT = 3.25; // meters, vertical tolerance (crate-top items grab from beside)
 
 /**
  * Cylinder pickup check: generous horizontally, tall vertically — so an item

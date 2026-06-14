@@ -9,6 +9,7 @@ import {
   ROUND_END_TIME,
   SHOT_RANGE,
   SOLIDS,
+  SPAWN_SLOTS,
   TEAM_SIZE,
   TICK_RATE,
   WEAPONS,
@@ -330,8 +331,9 @@ export class Room {
     this.resetItems();
     for (const team of ['T', 'CT'] as const) {
       const members = this.teamPlayers(team);
+      const spawnSlots = this.randomSpawnSlots(team, members.length);
       members.forEach((p, slot) => {
-        const sp = spawnPoint(team, slot);
+        const sp = spawnPoint(team, spawnSlots[slot] ?? slot);
         p.kin = { x: sp.pos.x, y: sp.pos.y, z: sp.pos.z, vx: 0, vy: 0, vz: 0, grounded: true };
         p.yaw = sp.yaw;
         p.pitch = 0;
@@ -348,6 +350,16 @@ export class Room {
       });
     }
     this.broadcastRoom();
+  }
+
+  private randomSpawnSlots(team: Team, count: number): number[] {
+    const slots = SPAWN_SLOTS[team].map((_, idx) => idx);
+    for (let i = slots.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [slots[i], slots[j]] = [slots[j], slots[i]];
+    }
+    while (slots.length < count) slots.push(Math.floor(Math.random() * SPAWN_SLOTS[team].length));
+    return slots;
   }
 
   /** Send each human their per-victim damage summary for the round. */

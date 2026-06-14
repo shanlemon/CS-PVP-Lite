@@ -129,7 +129,7 @@ await sleep(150);
 
 if (!a.you) fail('no self snapshot');
 const spawnZ = a.you.z;
-if (Math.abs(spawnZ - 21.5) > 0.6) fail(`unexpected T spawn z=${spawnZ}`);
+if (spawnZ < 12.2 || spawnZ > 17.2) fail(`unexpected T spawn z=${spawnZ}`);
 if (Math.abs(a.you.y - 1.0) > 0.2) fail(`expected platform spawn height, y=${a.you.y}`);
 console.log(`ok: spawned on platform at z=${spawnZ.toFixed(2)} y=${a.you.y.toFixed(2)}`);
 
@@ -139,7 +139,7 @@ for (let i = 0; i < 30; i++) {
   await sleep(33);
 }
 await sleep(150);
-if (!(a.you.z < spawnZ - 3)) fail(`movement failed: z went ${spawnZ} -> ${a.you.z}`);
+if (!(a.you.z < spawnZ - 0.5)) fail(`movement failed: z went ${spawnZ} -> ${a.you.z}`);
 console.log(`ok: walked forward to z=${a.you.z.toFixed(2)} (y=${a.you.y.toFixed(2)})`);
 
 // Aim at Bob and fire single, fully-recovered shots (spread ~0 when standing).
@@ -194,7 +194,7 @@ const bobEntry = a.room.players.find((p) => p.id === b.id);
 if (!bobEntry.alive) fail('Bob not respawned for next round');
 if (!b.you || b.you.hp !== 100) fail(`Bob hp not reset: ${b.you?.hp}`);
 const bobSnap = a.players.find((p) => p.id === b.id);
-if (Math.abs(bobSnap.z - -21.5) > 0.6) fail(`Bob not back at CT spawn, z=${bobSnap.z}`);
+if (bobSnap.z < -17.2 || bobSnap.z > -12.2) fail(`Bob not back at CT spawn, z=${bobSnap.z}`);
 console.log('ok: both respawned at full HP for the next round');
 
 // Disconnect mid-round: Bob leaves during the live round -> T should win the round

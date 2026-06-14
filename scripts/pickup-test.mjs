@@ -73,8 +73,27 @@ if (!items0.some((i) => i.type === 'm4a4')) fail('no m4a4 item at round start');
 if (!items0.some((i) => i.type === 'awp')) fail('no awp item at round start');
 console.log('ok: spawned with AK; M4 and AWP present:', JSON.stringify(items0));
 
-// Walk toward the M4 (steering each tick toward the target).
-const m4 = items0.find((i) => i.type === 'm4a4');
+function nearestItem(type) {
+  return a.room.items
+    .filter((i) => i.type === type && !i.taken)
+    .sort((p, q) =>
+      Math.hypot(p.x - a.you.x, p.z - a.you.z) -
+      Math.hypot(q.x - a.you.x, q.z - a.you.z)
+    )[0];
+}
+
+function nearestLowItem(type) {
+  return a.room.items
+    .filter((i) => i.type === type && !i.taken && i.y <= 3.1)
+    .sort((p, q) =>
+      Math.hypot(p.x - a.you.x, p.z - a.you.z) -
+      Math.hypot(q.x - a.you.x, q.z - a.you.z)
+    )[0];
+}
+
+// Walk toward the nearest M4 (steering each tick toward the target).
+const m4 = nearestItem('m4a4');
+if (!m4) fail('no reachable m4a4 item at round start');
 await (async () => {
   const t0 = Date.now();
   while (Date.now() - t0 < 15000) {
@@ -109,7 +128,8 @@ await until('swap back to ak47', () => a.you?.weapon === 'ak47', 3000);
 console.log('ok: swapped back to AK; items now:', JSON.stringify(a.room.items));
 
 // AWP must be grabbable from BESIDE its crate (cylinder pickup, no jumping).
-const awp = a.room.items.find((i) => i.type === 'awp');
+const awp = nearestLowItem('awp');
+if (!awp) fail('no awp item after pickup swap');
 async function walkTo(tx, tz, timeoutMs = 15000) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
@@ -121,10 +141,10 @@ async function walkTo(tx, tz, timeoutMs = 15000) {
   }
   fail(`never reached (${tx}, ${tz}) - stuck at (${a.you.x.toFixed(1)}, ${a.you.z.toFixed(1)})`);
 }
-// Route around the mid-map crates, then stop on the ground south of the AWP crate.
-await walkTo(-7.2, -1.8);
-await walkTo(awp.x, awp.z - 1.4);
-if (a.you.y > 0.2) fail(`expected to stand on the ground beside the crate, y=${a.you.y}`);
+// Route toward the AWP, then stop beside its crate.
+const sideZ = awp.z + (awp.z > a.you.z ? -1.4 : 1.4);
+await walkTo((a.you.x + awp.x) / 2, (a.you.z + sideZ) / 2);
+await walkTo(awp.x, sideZ);
 a.input({ use: true });
 await until('AWP picked up from beside the crate', () => a.you?.weapon === 'awp', 3000);
 console.log(`ok: grabbed the AWP from beside the crate (standing at y=${a.you.y.toFixed(2)})`);

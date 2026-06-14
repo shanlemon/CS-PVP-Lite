@@ -1,18 +1,160 @@
 import type { Box, Solid, SolidKind, Team, Vec3 } from './types.js';
 
-// aim_map-style arena. +Z end is T spawn, -Z end is CT spawn.
+// aim_map arena fitted from the original CS:GO Workshop BSP (id 122443683).
+// Source X maps to game X, Source Y maps to game Z, and Source Z maps to game Y.
 // Floor is the y=0 plane (not a solid; handled by the simulation).
 
-export const ARENA_HALF_X = 16; // playable width  32m
-export const ARENA_HALF_Z = 24; // playable length 48m
-export const WALL_HEIGHT = 5.5;
-export const WALL_THICKNESS = 1;
+export const ARENA_HALF_X = 16; // playable width ~32m
+export const ARENA_HALF_Z = 24; // playable length ~48m
+export const WALL_HEIGHT = 6.7;
+export const WALL_THICKNESS = 0.8;
 
 const PLATFORM_HEIGHT = 1.0;
-const PLATFORM_DEPTH = 5; // z extent of each spawn platform
-const CRATE = 1.35; // single crate edge length
+const PLATFORM_DEPTH = 6.9;
 const LOW_WALL_HEIGHT = 0.85;
-const LOW_WALL_THICKNESS = 0.45;
+const LOW_WALL_THICKNESS = 0.35;
+
+const SOURCE_CENTER_X = 244;
+const SOURCE_CENTER_Y = 284;
+const SOURCE_FLOOR_Z = -16;
+const SOURCE_XZ_SCALE = 40;
+const SOURCE_Y_SCALE = 48;
+
+type SourceBox = readonly [number, number, number, number, number, number];
+
+const SOURCE_CRATE_BOXES: SourceBox[] = [
+  [-96, -192, -16, -56, -152, 40],
+  [-176, -184, -16, -96, -104, 80],
+  [-240, -144, 64, -176, -80, 128],
+  [-240, -144, -16, -176, -80, 64],
+  [24, -144, -16, 104, -64, 80],
+  [104, -96, 64, 168, -32, 128],
+  [160, -144, -16, 208, -96, 48],
+  [104, -96, -16, 168, -32, 64],
+  [288, -144, -16, 384, -48, 96],
+  [384, -176, -16, 464, -96, 80],
+  [656, 16, 32, 736, 96, 112],
+  [552, -144, 32, 632, -64, 112],
+  [504, -304, 32, 552, -256, 80],
+  [736, 48, 32, 784, 96, 80],
+  [544, 720, -16, 584, 760, 40],
+  [584, 672, -16, 664, 752, 80],
+  [664, 648, -16, 728, 712, 64],
+  [664, 648, 64, 728, 712, 128],
+  [280, 664, -16, 328, 712, 48],
+  [320, 600, -16, 384, 664, 64],
+  [320, 600, 64, 384, 664, 128],
+  [384, 632, -16, 464, 712, 80],
+  [24, 664, -16, 104, 744, 80],
+  [104, 616, -16, 200, 712, 96],
+  [-248, 472, 32, -168, 552, 112],
+  [-296, 472, 32, -248, 520, 80],
+  [-144, 632, 32, -64, 712, 112],
+  [496, 1032, 160, 576, 1112, 240],
+  [-136, 1032, 160, -56, 1112, 240],
+  [544, -544, 160, 624, -464, 240],
+  [-88, -544, 160, -8, -464, 240],
+];
+
+const SOURCE_STRUCTURAL_BOXES: SourceBox[] = [
+  [-360, -648, -16, 848, -456, 160],
+  [848, -680, -16, 880, 1248, 304],
+  [-360, 1024, -16, 848, 1216, 160],
+  [-392, -680, 104, -360, 1248, 304],
+  [-392, -680, -16, -360, 1248, 56],
+  [-392, -680, 56, -376, 1248, 104],
+  [-376, 344, 56, -360, 1232, 104],
+  [-376, 152, 56, -360, 312, 104],
+  [-376, -664, 56, -360, 120, 104],
+  [-392, 1216, -16, 880, 1248, 304],
+  [-392, -680, -16, 880, -648, 304],
+  [744, -456, 32, 848, -352, 160],
+  [760, -352, 32, 848, -264, 120],
+  [680, -456, 32, 744, -392, 96],
+  [-360, 920, 32, -256, 1024, 160],
+  [-256, 960, 32, -192, 1024, 96],
+  [-360, 832, 32, -272, 920, 120],
+  [816, 480, -16, 848, 640, 304],
+  [816, 144, -16, 848, 304, 304],
+  [-360, 360, -16, -344, 448, 304],
+  [-360, 88, 208, -344, 376, 304],
+  [-360, 16, -16, -344, 104, 304],
+  [656, 96, 32, 848, 104, 72],
+  [648, -64, 32, 656, 104, 72],
+  [544, -64, 32, 648, -56, 72],
+  [544, -256, 32, 552, -64, 72],
+  [464, -256, 32, 544, -248, 72],
+  [448, -408, -16, 464, -248, 16],
+  [464, -456, 32, 472, -392, 72],
+  [-264, -456, 0, -256, -248, 192],
+  [-360, -456, 0, -264, -248, 160],
+  [-264, -464, 160, 848, -456, 192],
+  [-360, 464, 32, -168, 472, 72],
+  [-168, 464, 32, -160, 632, 72],
+  [-160, 624, 32, -56, 632, 72],
+  [-64, 632, 32, -56, 824, 72],
+  [-56, 816, 32, 24, 824, 72],
+  [24, 816, -16, 40, 976, 16],
+  [16, 960, 32, 24, 1024, 72],
+  [-360, 1024, 160, 752, 1032, 192],
+  [744, 816, 0, 752, 1024, 192],
+  [752, 816, 0, 848, 1024, 160],
+];
+
+export const SPAWN_SLOTS: Record<Team, readonly Vec3[]> = {
+  T: [
+    { x: -4.125, y: PLATFORM_HEIGHT, z: 12.5 },
+    { x: -4.125, y: PLATFORM_HEIGHT, z: 16.5 },
+    { x: -4.125, y: PLATFORM_HEIGHT, z: 14.5 },
+    { x: -2.025, y: PLATFORM_HEIGHT, z: 12.5 },
+    { x: -2.025, y: PLATFORM_HEIGHT, z: 14.5 },
+    { x: -2.025, y: PLATFORM_HEIGHT, z: 16.5 },
+    { x: 1.775, y: PLATFORM_HEIGHT, z: 12.5 },
+    { x: 3.875, y: PLATFORM_HEIGHT, z: 12.5 },
+    { x: 1.775, y: PLATFORM_HEIGHT, z: 14.5 },
+    { x: 3.875, y: PLATFORM_HEIGHT, z: 14.5 },
+    { x: 1.775, y: PLATFORM_HEIGHT, z: 16.5 },
+    { x: 3.875, y: PLATFORM_HEIGHT, z: 16.5 },
+    { x: 9.075, y: PLATFORM_HEIGHT, z: 12.9 },
+    { x: 11.175, y: PLATFORM_HEIGHT, z: 12.9 },
+    { x: 9.075, y: PLATFORM_HEIGHT, z: 14.9 },
+    { x: 11.175, y: PLATFORM_HEIGHT, z: 14.9 },
+    { x: 9.075, y: PLATFORM_HEIGHT, z: 16.9 },
+    { x: 11.175, y: PLATFORM_HEIGHT, z: 16.9 },
+  ],
+  CT: [
+    { x: 4.175, y: PLATFORM_HEIGHT, z: -12.5 },
+    { x: 4.175, y: PLATFORM_HEIGHT, z: -16.5 },
+    { x: 4.175, y: PLATFORM_HEIGHT, z: -14.5 },
+    { x: 2.1, y: PLATFORM_HEIGHT, z: -12.525 },
+    { x: 2.1, y: PLATFORM_HEIGHT, z: -14.525 },
+    { x: 2.1, y: PLATFORM_HEIGHT, z: -16.525 },
+    { x: -1.825, y: PLATFORM_HEIGHT, z: -12.5 },
+    { x: -3.9, y: PLATFORM_HEIGHT, z: -12.525 },
+    { x: -1.825, y: PLATFORM_HEIGHT, z: -14.6 },
+    { x: -3.9, y: PLATFORM_HEIGHT, z: -14.525 },
+    { x: -1.825, y: PLATFORM_HEIGHT, z: -16.5 },
+    { x: -3.9, y: PLATFORM_HEIGHT, z: -16.525 },
+    { x: -9.1, y: PLATFORM_HEIGHT, z: -12.925 },
+    { x: -11.1, y: PLATFORM_HEIGHT, z: -12.925 },
+    { x: -9.1, y: PLATFORM_HEIGHT, z: -14.925 },
+    { x: -11.1, y: PLATFORM_HEIGHT, z: -14.925 },
+    { x: -9.1, y: PLATFORM_HEIGHT, z: -16.925 },
+    { x: -11.1, y: PLATFORM_HEIGHT, z: -16.925 },
+  ],
+};
+
+function sourceX(x: number): number {
+  return (x - SOURCE_CENTER_X) / SOURCE_XZ_SCALE;
+}
+
+function sourceZ(y: number): number {
+  return (y - SOURCE_CENTER_Y) / SOURCE_XZ_SCALE;
+}
+
+function sourceY(z: number): number {
+  return (z - SOURCE_FLOOR_Z) / SOURCE_Y_SCALE;
+}
 
 function box(cx: number, cz: number, w: number, h: number, d: number, y0 = 0): Box {
   return {
@@ -21,16 +163,31 @@ function box(cx: number, cz: number, w: number, h: number, d: number, y0 = 0): B
   };
 }
 
+function sourceBox(b: SourceBox): Box {
+  const [minX, minY, minZ, maxX, maxY, maxZ] = b;
+  return {
+    min: { x: sourceX(minX), y: sourceY(minZ), z: sourceZ(minY) },
+    max: { x: sourceX(maxX), y: sourceY(maxZ), z: sourceZ(maxY) },
+  };
+}
+
 function solid(kind: SolidKind, cx: number, cz: number, w: number, h: number, d: number, y0 = 0): Solid {
   return { box: box(cx, cz, w, h, d, y0), kind };
 }
 
-function crate(cx: number, cz: number, stacked = false, w = CRATE, d = w, y0 = 0): Solid {
-  return solid('crate', cx, cz, w, stacked ? CRATE * 2 : CRATE, d, y0);
-}
-
 function lowWall(cx: number, cz: number, w: number, d: number, y0: number): Solid {
   return solid('parapet', cx, cz, w, LOW_WALL_HEIGHT, d, y0);
+}
+
+function structuralKind(b: Box): SolidKind {
+  const w = b.max.x - b.min.x;
+  const h = b.max.y - b.min.y;
+  const d = b.max.z - b.min.z;
+  const thin = Math.min(w, d) <= 0.45;
+  if (b.min.y >= PLATFORM_HEIGHT - 0.05 && h <= 0.9 && thin) return 'parapet';
+  if (b.min.y <= 0.05 && h <= 0.75) return 'step';
+  if (b.min.y <= 0.05 && h <= PLATFORM_HEIGHT + 0.05) return 'platform';
+  return 'wall';
 }
 
 function buildSolids(): Solid[] {
@@ -39,74 +196,42 @@ function buildSolids(): Solid[] {
   const hz = ARENA_HALF_Z;
   const t = WALL_THICKNESS;
 
-  // Perimeter walls (centered just outside the playable bounds)
-  s.push({ box: box(0, -hz - t / 2, hx * 2 + t * 2, WALL_HEIGHT, t), kind: 'wall' });
-  s.push({ box: box(0, hz + t / 2, hx * 2 + t * 2, WALL_HEIGHT, t), kind: 'wall' });
-  s.push({ box: box(-hx - t / 2, 0, t, WALL_HEIGHT, hz * 2 + t * 2), kind: 'wall' });
-  s.push({ box: box(hx + t / 2, 0, t, WALL_HEIGHT, hz * 2 + t * 2), kind: 'wall' });
+  // Perimeter walls (centered just outside the playable bounds).
+  s.push(solid('wall', 0, -hz - t / 2, hx * 2 + t * 2, WALL_HEIGHT, t));
+  s.push(solid('wall', 0, hz + t / 2, hx * 2 + t * 2, WALL_HEIGHT, t));
+  s.push(solid('wall', -hx - t / 2, 0, t, WALL_HEIGHT, hz * 2 + t * 2));
+  s.push(solid('wall', hx + t / 2, 0, t, WALL_HEIGHT, hz * 2 + t * 2));
 
-  // Raised spawn platforms across each end, with stair gaps and the low front
-  // parapets visible in aim_map screenshots.
+  // The original map's active spawn bands sit around z=+/-13..17, behind the
+  // first crate row. These walkable slabs ensure every BSP spawn slot is valid.
   for (const sign of [1, -1] as const) {
-    const platCz = sign * (hz - PLATFORM_DEPTH / 2);
-    s.push(solid('platform', 0, platCz, hx * 2, PLATFORM_HEIGHT, PLATFORM_DEPTH));
-    const stepCz = sign * (hz - PLATFORM_DEPTH - 0.5);
-    s.push(solid('step', -7, stepCz, 4, PLATFORM_HEIGHT / 2, 1));
-    s.push(solid('step', 7, stepCz, 4, PLATFORM_HEIGHT / 2, 1));
-
-    const frontZ = sign * (hz - PLATFORM_DEPTH + LOW_WALL_THICKNESS / 2);
-    s.push(lowWall(-12.7, frontZ, 5.6, LOW_WALL_THICKNESS, PLATFORM_HEIGHT));
-    s.push(lowWall(12.7, frontZ, 5.6, LOW_WALL_THICKNESS, PLATFORM_HEIGHT));
-
-    // Spawn-side crate props: large boxes on the tiled platform edges, clear of
-    // the two spawn slots at x = +/-5.
-    s.push(crate(-11.2, sign * (hz - 2.2), false, 1.65, 1.65, PLATFORM_HEIGHT));
-    s.push(crate(11.2, sign * (hz - 2.2), false, 1.65, 1.65, PLATFORM_HEIGHT));
-    s.push(crate(-14.2, sign * (hz - PLATFORM_DEPTH + 1.25), false, 1.15, 1.15, PLATFORM_HEIGHT));
-    s.push(crate(14.2, sign * (hz - PLATFORM_DEPTH + 1.25), false, 1.15, 1.15, PLATFORM_HEIGHT));
+    const centerZ = sign * 15.05;
+    const frontZ = sign * (15.05 - PLATFORM_DEPTH / 2);
+    s.push(solid('platform', 0, centerZ, hx * 2, PLATFORM_HEIGHT, PLATFORM_DEPTH));
+    s.push(solid('step', -7, frontZ - sign * 0.45, 4, PLATFORM_HEIGHT / 2, 0.9));
+    s.push(solid('step', 7, frontZ - sign * 0.45, 4, PLATFORM_HEIGHT / 2, 0.9));
+    s.push(lowWall(-12.7, frontZ + sign * LOW_WALL_THICKNESS / 2, 5.6, LOW_WALL_THICKNESS, PLATFORM_HEIGHT));
+    s.push(lowWall(12.7, frontZ + sign * LOW_WALL_THICKNESS / 2, 5.6, LOW_WALL_THICKNESS, PLATFORM_HEIGHT));
   }
 
-  // Main aim_map crate field, point-mirrored across the arena center. The
-  // clusters follow the Workshop screenshots: three close-range blocks in
-  // front of spawn, a staggered middle, and taller stacks off the lanes.
-  const half: Array<[number, number, boolean, number, number]> = [
-    // [x, z, stacked, w, d]
-    // near-spawn cover row
-    [-12.2, 15.1, false, 1.65, 1.65],
-    [-13.8, 13.2, false, 1.1, 1.1],
-    [-4.6, 14.2, false, 1.55, 1.55],
-    [-2.8, 13.0, true, 1.25, 1.25],
-    [2.9, 13.1, false, 1.15, 1.15],
-    [11.6, 15.0, false, 1.75, 1.75],
-
-    // staggered midfield
-    [-10.9, 7.2, false, 1.45, 1.45],
-    [-3.6, 6.6, true, 1.3, 1.3],
-    [2.7, 5.1, false, 1.15, 1.15],
-    [6.5, 8.2, false, 1.35, 1.35],
-    [9.4, 9.7, true, 1.25, 1.25],
-  ];
-  for (const [x, z, stacked, w, d] of half) {
-    s.push(crate(x, z, stacked, w, d));
-    s.push(crate(-x, -z, stacked, w, d)); // point-mirrored for symmetry
+  for (const b of SOURCE_STRUCTURAL_BOXES) {
+    const bx = sourceBox(b);
+    s.push({ box: bx, kind: structuralKind(bx) });
   }
-  // Center-line cover and the AWP-top crate used by the pickup flow.
-  s.push(crate(-11.3, 0, true, 1.35, 1.35));
-  s.push(crate(11.3, 0, true, 1.35, 1.35));
-  s.push(crate(0.6, 0, false, CRATE, CRATE));
-  s.push(crate(-0.75, 1.25, false, 1.1, 1.1)); // small L next to center single
+
+  for (const b of SOURCE_CRATE_BOXES) {
+    s.push({ box: sourceBox(b), kind: 'crate' });
+  }
 
   return s;
 }
 
 export const SOLIDS: Solid[] = buildSolids();
 
-/** Spawn slots per team (on top of the raised platforms), facing mid. */
+/** Spawn slots per team, facing mid. Slots are exact positions from the BSP. */
 export function spawnPoint(team: Team, slot: number): { pos: Vec3; yaw: number } {
-  const sign = team === 'T' ? 1 : -1;
-  const x = slot % 2 === 0 ? -5 : 5;
-  const z = sign * (ARENA_HALF_Z - 2.5);
-  // yaw 0 faces -Z; T (at +Z) faces -Z => yaw 0; CT faces +Z => yaw PI
+  const slots = SPAWN_SLOTS[team];
+  const pos = slots[((slot % slots.length) + slots.length) % slots.length];
   const yaw = team === 'T' ? 0 : Math.PI;
-  return { pos: { x, y: PLATFORM_HEIGHT, z }, yaw };
+  return { pos: { ...pos }, yaw };
 }
