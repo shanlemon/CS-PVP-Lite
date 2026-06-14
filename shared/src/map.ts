@@ -9,10 +9,8 @@ export const ARENA_HALF_Z = 24; // playable length ~48m
 export const WALL_HEIGHT = 6.7;
 export const WALL_THICKNESS = 0.8;
 
-const PLATFORM_HEIGHT = 1.0;
-const PLATFORM_DEPTH = 6.9;
-const LOW_WALL_HEIGHT = 0.85;
-const LOW_WALL_THICKNESS = 0.35;
+const SPAWN_FEET_Y = 0;
+const LOW_STRUCTURE_TOP_Y = 1.0;
 
 const SOURCE_CENTER_X = 244;
 const SOURCE_CENTER_Y = 284;
@@ -58,8 +56,14 @@ const SOURCE_CRATE_BOXES: SourceBox[] = [
 
 const SOURCE_STRUCTURAL_BOXES: SourceBox[] = [
   [-360, -648, -16, 848, -456, 160],
+  [464, -456, -16, 544, -248, 32],
+  [544, -456, -16, 848, -56, 32],
+  [648, -56, -16, 848, 104, 32],
   [848, -680, -16, 880, 1248, 304],
+  [-360, 464, -16, -160, 624, 32],
+  [-360, 624, -16, -56, 1024, 32],
   [-360, 1024, -16, 848, 1216, 160],
+  [-56, 816, -16, 24, 1024, 32],
   [-392, -680, 104, -360, 1248, 304],
   [-392, -680, -16, -360, 1248, 56],
   [-392, -680, 56, -376, 1248, 104],
@@ -79,6 +83,10 @@ const SOURCE_STRUCTURAL_BOXES: SourceBox[] = [
   [-360, 360, -16, -344, 448, 304],
   [-360, 88, 208, -344, 376, 304],
   [-360, 16, -16, -344, 104, 304],
+  [-392, 1216, 304, 880, 1248, 336],
+  [848, -680, 304, 880, 1248, 336],
+  [-392, -680, 304, 880, -648, 336],
+  [-392, -680, 304, -360, 1248, 336],
   [656, 96, 32, 848, 104, 72],
   [648, -64, 32, 656, 104, 72],
   [544, -64, 32, 648, -56, 72],
@@ -103,44 +111,44 @@ const SOURCE_STRUCTURAL_BOXES: SourceBox[] = [
 
 export const SPAWN_SLOTS: Record<Team, readonly Vec3[]> = {
   T: [
-    { x: -4.125, y: PLATFORM_HEIGHT, z: 12.5 },
-    { x: -4.125, y: PLATFORM_HEIGHT, z: 16.5 },
-    { x: -4.125, y: PLATFORM_HEIGHT, z: 14.5 },
-    { x: -2.025, y: PLATFORM_HEIGHT, z: 12.5 },
-    { x: -2.025, y: PLATFORM_HEIGHT, z: 14.5 },
-    { x: -2.025, y: PLATFORM_HEIGHT, z: 16.5 },
-    { x: 1.775, y: PLATFORM_HEIGHT, z: 12.5 },
-    { x: 3.875, y: PLATFORM_HEIGHT, z: 12.5 },
-    { x: 1.775, y: PLATFORM_HEIGHT, z: 14.5 },
-    { x: 3.875, y: PLATFORM_HEIGHT, z: 14.5 },
-    { x: 1.775, y: PLATFORM_HEIGHT, z: 16.5 },
-    { x: 3.875, y: PLATFORM_HEIGHT, z: 16.5 },
-    { x: 9.075, y: PLATFORM_HEIGHT, z: 12.9 },
-    { x: 11.175, y: PLATFORM_HEIGHT, z: 12.9 },
-    { x: 9.075, y: PLATFORM_HEIGHT, z: 14.9 },
-    { x: 11.175, y: PLATFORM_HEIGHT, z: 14.9 },
-    { x: 9.075, y: PLATFORM_HEIGHT, z: 16.9 },
-    { x: 11.175, y: PLATFORM_HEIGHT, z: 16.9 },
+    { x: -4.125, y: SPAWN_FEET_Y, z: 12.5 },
+    { x: -4.125, y: SPAWN_FEET_Y, z: 16.5 },
+    { x: -4.125, y: SPAWN_FEET_Y, z: 14.5 },
+    { x: -2.025, y: SPAWN_FEET_Y, z: 12.5 },
+    { x: -2.025, y: SPAWN_FEET_Y, z: 14.5 },
+    { x: -2.025, y: SPAWN_FEET_Y, z: 16.5 },
+    { x: 1.775, y: SPAWN_FEET_Y, z: 12.5 },
+    { x: 3.875, y: SPAWN_FEET_Y, z: 12.5 },
+    { x: 1.775, y: SPAWN_FEET_Y, z: 14.5 },
+    { x: 3.875, y: SPAWN_FEET_Y, z: 14.5 },
+    { x: 1.775, y: SPAWN_FEET_Y, z: 16.5 },
+    { x: 3.875, y: SPAWN_FEET_Y, z: 16.5 },
+    { x: 9.075, y: SPAWN_FEET_Y, z: 12.9 },
+    { x: 11.175, y: SPAWN_FEET_Y, z: 12.9 },
+    { x: 9.075, y: SPAWN_FEET_Y, z: 14.9 },
+    { x: 11.175, y: SPAWN_FEET_Y, z: 14.9 },
+    { x: 9.075, y: SPAWN_FEET_Y, z: 16.9 },
+    { x: 11.175, y: SPAWN_FEET_Y, z: 16.9 },
   ],
   CT: [
-    { x: 4.175, y: PLATFORM_HEIGHT, z: -12.5 },
-    { x: 4.175, y: PLATFORM_HEIGHT, z: -16.5 },
-    { x: 4.175, y: PLATFORM_HEIGHT, z: -14.5 },
-    { x: 2.1, y: PLATFORM_HEIGHT, z: -12.525 },
-    { x: 2.1, y: PLATFORM_HEIGHT, z: -14.525 },
-    { x: 2.1, y: PLATFORM_HEIGHT, z: -16.525 },
-    { x: -1.825, y: PLATFORM_HEIGHT, z: -12.5 },
-    { x: -3.9, y: PLATFORM_HEIGHT, z: -12.525 },
-    { x: -1.825, y: PLATFORM_HEIGHT, z: -14.6 },
-    { x: -3.9, y: PLATFORM_HEIGHT, z: -14.525 },
-    { x: -1.825, y: PLATFORM_HEIGHT, z: -16.5 },
-    { x: -3.9, y: PLATFORM_HEIGHT, z: -16.525 },
-    { x: -9.1, y: PLATFORM_HEIGHT, z: -12.925 },
-    { x: -11.1, y: PLATFORM_HEIGHT, z: -12.925 },
-    { x: -9.1, y: PLATFORM_HEIGHT, z: -14.925 },
-    { x: -11.1, y: PLATFORM_HEIGHT, z: -14.925 },
-    { x: -9.1, y: PLATFORM_HEIGHT, z: -16.925 },
-    { x: -11.1, y: PLATFORM_HEIGHT, z: -16.925 },
+    { x: 4.175, y: SPAWN_FEET_Y, z: -12.5 },
+    { x: 4.175, y: SPAWN_FEET_Y, z: -16.5 },
+    { x: 4.175, y: SPAWN_FEET_Y, z: -14.5 },
+    { x: 2.1, y: SPAWN_FEET_Y, z: -12.525 },
+    { x: 2.1, y: SPAWN_FEET_Y, z: -14.525 },
+    { x: 2.1, y: SPAWN_FEET_Y, z: -16.525 },
+    { x: -1.825, y: SPAWN_FEET_Y, z: -12.5 },
+    { x: -3.9, y: SPAWN_FEET_Y, z: -12.525 },
+    { x: -1.825, y: SPAWN_FEET_Y, z: -14.6 },
+    { x: -3.9, y: SPAWN_FEET_Y, z: -14.525 },
+    { x: -1.825, y: SPAWN_FEET_Y, z: -16.5 },
+    { x: -3.9, y: SPAWN_FEET_Y, z: -16.525 },
+    { x: -9.1, y: SPAWN_FEET_Y, z: -12.925 },
+    { x: -11.1, y: SPAWN_FEET_Y, z: -12.925 },
+    { x: -9.1, y: SPAWN_FEET_Y, z: -14.925 },
+    { x: -11.1, y: SPAWN_FEET_Y, z: -14.925 },
+    { x: -9.1, y: SPAWN_FEET_Y, z: -16.925 },
+    { x: -11.1, y: SPAWN_FEET_Y, z: -16.925 },
   ],
 };
 
@@ -156,13 +164,6 @@ function sourceY(z: number): number {
   return (z - SOURCE_FLOOR_Z) / SOURCE_Y_SCALE;
 }
 
-function box(cx: number, cz: number, w: number, h: number, d: number, y0 = 0): Box {
-  return {
-    min: { x: cx - w / 2, y: y0, z: cz - d / 2 },
-    max: { x: cx + w / 2, y: y0 + h, z: cz + d / 2 },
-  };
-}
-
 function sourceBox(b: SourceBox): Box {
   const [minX, minY, minZ, maxX, maxY, maxZ] = b;
   return {
@@ -171,48 +172,19 @@ function sourceBox(b: SourceBox): Box {
   };
 }
 
-function solid(kind: SolidKind, cx: number, cz: number, w: number, h: number, d: number, y0 = 0): Solid {
-  return { box: box(cx, cz, w, h, d, y0), kind };
-}
-
-function lowWall(cx: number, cz: number, w: number, d: number, y0: number): Solid {
-  return solid('parapet', cx, cz, w, LOW_WALL_HEIGHT, d, y0);
-}
-
 function structuralKind(b: Box): SolidKind {
   const w = b.max.x - b.min.x;
   const h = b.max.y - b.min.y;
   const d = b.max.z - b.min.z;
   const thin = Math.min(w, d) <= 0.45;
-  if (b.min.y >= PLATFORM_HEIGHT - 0.05 && h <= 0.9 && thin) return 'parapet';
+  if (b.min.y >= LOW_STRUCTURE_TOP_Y - 0.05 && h <= 0.9 && thin) return 'parapet';
   if (b.min.y <= 0.05 && h <= 0.75) return 'step';
-  if (b.min.y <= 0.05 && h <= PLATFORM_HEIGHT + 0.05) return 'platform';
+  if (b.min.y <= 0.05 && h <= LOW_STRUCTURE_TOP_Y + 0.05) return 'platform';
   return 'wall';
 }
 
 function buildSolids(): Solid[] {
   const s: Solid[] = [];
-  const hx = ARENA_HALF_X;
-  const hz = ARENA_HALF_Z;
-  const t = WALL_THICKNESS;
-
-  // Perimeter walls (centered just outside the playable bounds).
-  s.push(solid('wall', 0, -hz - t / 2, hx * 2 + t * 2, WALL_HEIGHT, t));
-  s.push(solid('wall', 0, hz + t / 2, hx * 2 + t * 2, WALL_HEIGHT, t));
-  s.push(solid('wall', -hx - t / 2, 0, t, WALL_HEIGHT, hz * 2 + t * 2));
-  s.push(solid('wall', hx + t / 2, 0, t, WALL_HEIGHT, hz * 2 + t * 2));
-
-  // The original map's active spawn bands sit around z=+/-13..17, behind the
-  // first crate row. These walkable slabs ensure every BSP spawn slot is valid.
-  for (const sign of [1, -1] as const) {
-    const centerZ = sign * 15.05;
-    const frontZ = sign * (15.05 - PLATFORM_DEPTH / 2);
-    s.push(solid('platform', 0, centerZ, hx * 2, PLATFORM_HEIGHT, PLATFORM_DEPTH));
-    s.push(solid('step', -7, frontZ - sign * 0.45, 4, PLATFORM_HEIGHT / 2, 0.9));
-    s.push(solid('step', 7, frontZ - sign * 0.45, 4, PLATFORM_HEIGHT / 2, 0.9));
-    s.push(lowWall(-12.7, frontZ + sign * LOW_WALL_THICKNESS / 2, 5.6, LOW_WALL_THICKNESS, PLATFORM_HEIGHT));
-    s.push(lowWall(12.7, frontZ + sign * LOW_WALL_THICKNESS / 2, 5.6, LOW_WALL_THICKNESS, PLATFORM_HEIGHT));
-  }
 
   for (const b of SOURCE_STRUCTURAL_BOXES) {
     const bx = sourceBox(b);
