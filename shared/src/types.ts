@@ -13,7 +13,7 @@ export interface Box {
   max: Vec3;
 }
 
-export type SolidKind = 'wall' | 'crate' | 'platform' | 'step';
+export type SolidKind = 'wall' | 'crate' | 'platform' | 'step' | 'parapet';
 
 export interface Solid {
   box: Box;

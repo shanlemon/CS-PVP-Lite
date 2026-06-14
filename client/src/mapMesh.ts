@@ -133,7 +133,7 @@ function addCrate(scene: THREE.Scene, s: Solid): void {
   }
 
   const shadow = makeContactShadow(w, d);
-  shadow.position.set(cx, 0.012, cz);
+  shadow.position.set(cx, s.box.min.y + 0.012, cz);
   scene.add(shadow);
 }
 
@@ -206,6 +206,39 @@ function addWall(scene: THREE.Scene, s: Solid): void {
   coping.castShadow = true;
   coping.receiveShadow = true;
   scene.add(coping);
+}
+
+function addParapet(scene: THREE.Scene, s: Solid): void {
+  const w = s.box.max.x - s.box.min.x;
+  const h = s.box.max.y - s.box.min.y;
+  const d = s.box.max.z - s.box.min.z;
+  const cx = (s.box.min.x + s.box.max.x) / 2;
+  const cz = (s.box.min.z + s.box.max.z) / 2;
+  const alongX = w >= d;
+  const length = alongX ? w : d;
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    texturedMaterial('concrete', concreteTexture, Math.max(w, 1) / 2, Math.max(d, 1) / 2, {
+      roughness: 0.96,
+      tint: 0xc2b292,
+    }),
+  );
+  body.position.set(cx, s.box.min.y + h / 2, cz);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  scene.add(body);
+
+  const cap = new THREE.Mesh(
+    alongX
+      ? new THREE.BoxGeometry(length + 0.16, 0.12, d + 0.18)
+      : new THREE.BoxGeometry(w + 0.18, 0.12, length + 0.16),
+    texturedMaterial('coping', copingTexture, length / 2, 0.6, { roughness: 0.9 }),
+  );
+  cap.position.set(cx, s.box.max.y + 0.06, cz);
+  cap.castShadow = true;
+  cap.receiveShadow = true;
+  scene.add(cap);
 }
 
 // ---------------------------------------------------------------------------
@@ -360,6 +393,9 @@ export function buildWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer): v
     switch (s.kind) {
       case 'wall':
         addWall(scene, s);
+        break;
+      case 'parapet':
+        addParapet(scene, s);
         break;
       case 'crate':
         addCrate(scene, s);

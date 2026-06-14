@@ -124,16 +124,27 @@ export interface ItemState {
   taken: boolean;
 }
 
+const CRATE_TOP_Y = 1.35;
+const PLATFORM_TOP_Y = 1.0;
+const PLATFORM_CRATE_TOP_Y = 2.35;
+
 /**
- * Items placed at the start of every round. Everything is either on the
- * center line or in mirrored pairs, so neither team spawns closer to a gun.
+ * Items placed at the start of every round. The first few preserve the pickup
+ * test flow; the rest mimic aim_map's floor and crate-top rifle scatter in
+ * mirrored pairs so neither team spawns closer to an upgrade.
  */
 export const ITEM_SPAWNS: ReadonlyArray<{ type: WeaponType; x: number; y: number; z: number }> = [
   { type: 'm4a4', x: -9.5, y: 0, z: 0 }, // on the ground, mid-west
   { type: 'm4a4', x: 9.5, y: 0, z: 0 }, // on the ground, mid-east
-  { type: 'awp', x: 0.6, y: 1.2, z: 0 }, // on top of the center crate
-  { type: 'awp', x: -10.5, y: 1.2, z: 8 }, // on a crate in the T half
-  { type: 'awp', x: 10.5, y: 1.2, z: -8 }, // mirrored crate in the CT half
+  { type: 'awp', x: 0.6, y: CRATE_TOP_Y, z: 0 }, // on top of the center crate
+  { type: 'awp', x: -10.9, y: CRATE_TOP_Y, z: 7.2 }, // on a crate in the T half
+  { type: 'awp', x: 10.9, y: CRATE_TOP_Y, z: -7.2 }, // mirrored crate in the CT half
+  { type: 'm4a4', x: -6.5, y: PLATFORM_TOP_Y, z: 21.0 },
+  { type: 'm4a4', x: 6.5, y: PLATFORM_TOP_Y, z: 21.0 },
+  { type: 'm4a4', x: 6.5, y: PLATFORM_TOP_Y, z: -21.0 },
+  { type: 'm4a4', x: -6.5, y: PLATFORM_TOP_Y, z: -21.0 },
+  { type: 'awp', x: -11.2, y: PLATFORM_CRATE_TOP_Y, z: 21.8 },
+  { type: 'awp', x: 11.2, y: PLATFORM_CRATE_TOP_Y, z: -21.8 },
 ];
 
 export const PICKUP_RADIUS = 1.6; // meters, horizontal distance from player feet

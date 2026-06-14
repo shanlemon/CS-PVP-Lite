@@ -45,7 +45,7 @@ export class NavGrid {
         const maxZ = minZ + CELL;
         let blocked = false;
         for (const s of SOLIDS) {
-          if (s.kind !== 'crate' && s.kind !== 'wall') continue;
+          if (s.kind === 'platform' || s.kind === 'step') continue;
           const b = s.box;
           // Only solids that obstruct a standing player (too tall to step onto).
           if (!(b.min.y < 1.5 && b.max.y > STEP_HEIGHT)) continue;
